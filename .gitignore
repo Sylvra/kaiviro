@@ -1,0 +1,68 @@
+# --- Secrets : jamais dans Git ---
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+*.keystore
+*.jks
+secrets/
+credentials/
+*.kdbx
+google-services.json
+GoogleService-Info.plist
+
+# --- Sauvegardes et données utilisateur ---
+backups/*.tar*
+*.dump
+*.sql.gz
+*.sqlite
+*.db
+!packages/**/fixtures/**/*.db
+
+# --- Obsidian (config locale, pas le contenu) ---
+.obsidian/workspace*.json
+.obsidian/cache
+.trash/
+
+# --- Node ---
+node_modules/
+.next/
+dist/
+build/
+coverage/
+npm-debug.log*
+yarn-error.log*
+.pnpm-store/
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+
+# --- Android / Gradle ---
+.gradle/
+local.properties
+*.apk
+*.aab
+captures/
+.externalNativeBuild/
+.cxx/
+
+# --- IDE ---
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.iml
+
+# --- OS ---
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# --- Claude Code (local) ---
+.claude/settings.local.json
