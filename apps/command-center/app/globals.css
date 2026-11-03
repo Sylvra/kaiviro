@@ -1,0 +1,56 @@
+@import "tailwindcss";
+@import "@fontsource-variable/bricolage-grotesque";
+@import "@fontsource-variable/dm-sans";
+@import "@fontsource-variable/jetbrains-mono";
+
+/* Tokens KAIVIRO — CRM_SPEC §2. Une seule source pour toutes les couleurs. */
+@theme {
+  --font-display: "Bricolage Grotesque Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "DM Sans Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono Variable", ui-monospace, monospace;
+
+  --color-canvas: #f4f1ec;
+  --color-surface: #ffffff;
+  --color-surface-2: #fbfaf7;
+  --color-line: #ece7df;
+  --color-line-soft: #efeae3;
+  --color-ink: #1d1b19;
+  --color-ink-2: #3b3833;
+  --color-ink-3: #5f5a53;
+  --color-ghost: #8a8379;
+
+  --color-accent: #0f766e;
+  --color-accent-hover: #115e59;
+
+  --color-mint-bg: #ddf4ec;  --color-mint-ink: #0f5f57;  --color-mint-dot: #14b8a6;
+  --color-lav-bg: #ece8fb;   --color-lav-ink: #4b3bb0;   --color-lav-dot: #8b7cf0;
+  --color-coral-bg: #fde9df; --color-coral-ink: #a8432a; --color-coral-dot: #e07a52;
+  --color-amber-bg: #fff1cc; --color-amber-ink: #6b4a08; --color-amber-dot: #e0a100;
+  --color-sky-bg: #e0f0fb;   --color-sky-ink: #1e5a85;   --color-sky-dot: #3b8ed0;
+  --color-red-bg: #fde4e1;   --color-red-ink: #9f2f24;   --color-red-dot: #d9493a;
+  --color-neutral-bg: #f1eee9; --color-neutral-ink: #3b3833; --color-neutral-dot: #b8b1a6;
+
+  --radius-card: 14px;
+  --radius-panel: 20px;
+  --radius-shell: 22px;
+
+  --shadow-card: 0 1px 2px rgb(29 27 25 / 0.04), 0 8px 18px -14px rgb(29 27 25 / 0.18);
+  --shadow-lift: 0 1px 2px rgb(29 27 25 / 0.05), 0 14px 28px -14px rgb(29 27 25 / 0.22);
+  --shadow-shell: 0 1px 2px rgb(29 27 25 / 0.04), 0 24px 48px -32px rgb(29 27 25 / 0.18);
+}
+
+@layer base {
+  html { background: var(--color-canvas); color: var(--color-ink); }
+  body { font-family: var(--font-sans); font-size: 14px; line-height: 1.45; -webkit-font-smoothing: antialiased; }
+  :focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+  h1, h2, h3 { font-family: var(--font-display); letter-spacing: -0.01em; }
+}
+
+.sidebar-surface {
+  background: linear-gradient(180deg, #e6f4ee 0%, #eef0f7 52%, #f1ecf8 100%);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.9);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
