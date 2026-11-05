@@ -66,8 +66,11 @@ Information à relever par Johan : CGNAT ou IP publique, modèle de box et possi
 - Entrée par défaut : refusée.
 - Autorisé : trafic établi, `lo`, UDP WireGuard sur l'interface WAN (si WireGuard), SSH depuis `wg0` (et LAN admin le temps de l'installation), services de supervision depuis `wg0`.
 - **Piège Docker** : un port publié par Docker contourne les règles d'entrée classiques. D'où la règle : ports publiés liés à `${BIND_ADDR}` uniquement.
+- **Cohabitation avec Docker** : en nftables, un `drop` dans n'importe quelle chaîne de base d'un hook est définitif. La chaîne `forward` de KAIVIRO accepte donc explicitement le trafic des réseaux Docker (`172.30.10.0/24`, `172.30.20.0/24`, `docker0`) et le trafic VPN vers les conteneurs. Elle refuse le routage du VPN vers le LAN.
+- **Pas de `flush ruleset`** : le fichier supprime et recrée la seule table `inet kaiviro_filter`. Les tables de Docker restent en place.
+- **Adresse d'exemple** : `LAN_ADMIN = { 192.0.2.10 }` est une adresse TEST-NET. La remplacer par l'IP réelle du poste avant d'appliquer, sinon SSH depuis le LAN est bloqué.
 
-Proposition : [`nftables.conf`](../../infrastructure/network/nftables.conf).
+Proposition : [`nftables.conf`](../../infrastructure/network/nftables.conf). Procédure d'application et filet de sécurité : [`infrastructure/network/README.md`](../../infrastructure/network/README.md).
 
 ## 6. Contrôle « zéro port exposé »
 
