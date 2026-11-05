@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Search, Plus } from "lucide-react";
+import { Plus } from "lucide-react";
+import { SearchPalette } from "./SearchPalette";
 import { motion } from "motion/react";
 import { DEPARTMENTS } from "@/lib/data/ops";
 import { TONE } from "./tone";
@@ -40,12 +41,7 @@ export function Sidebar({ counts }: { counts: SidebarCounts }) {
         ))}
       </div>
 
-      <label className="flex h-[38px] items-center gap-2 rounded-xl border border-ink/5 bg-white/75 px-3 text-ink-3">
-        <Search size={15} aria-hidden />
-        <span className="sr-only">Rechercher</span>
-        <input type="search" placeholder="Rechercher…" className="min-w-0 flex-1 bg-transparent text-[13px] text-ink outline-none placeholder:text-ink-3" />
-        <kbd className="rounded-md border border-ink/10 bg-white px-1.5 font-mono text-[11px]">Ctrl K</kbd>
-      </label>
+      <SearchPalette />
 
       {!inOps ? (
         <>

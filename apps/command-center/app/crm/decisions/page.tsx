@@ -5,11 +5,12 @@ import { getDecisions } from "@/lib/queries";
 export const metadata = { title: "Décisions" };
 export const dynamic = "force-dynamic";
 
-export default async function Page() {
-  const d = await getDecisions();
+/** ?d=gh-25 ouvre directement une décision (lien de la recherche globale). */
+export default async function Page({ searchParams }: { searchParams: Promise<{ d?: string }> }) {
+  const [d, { d: initial }] = await Promise.all([getDecisions(), searchParams]);
   return (
     <>
-      <Decisions items={d.value ?? []} live={d.freshness === "live"} />
+      <Decisions key={initial ?? "all"} items={d.value ?? []} live={d.freshness === "live"} initial={initial} />
       <div className="flex justify-end px-6 pb-5"><SourceNote s={d} /></div>
     </>
   );

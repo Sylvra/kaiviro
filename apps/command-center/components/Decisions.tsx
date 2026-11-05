@@ -10,9 +10,9 @@ import { Pill, cx } from "./ui";
 
 type Action = "comment" | "resolve" | "reopen";
 
-export function Decisions({ items, live }: { items: Decision[]; live: boolean }) {
+export function Decisions({ items, live, initial }: { items: Decision[]; live: boolean; initial?: string }) {
   const router = useRouter();
-  const [sel, setSel] = useState(items[0]?.key ?? "");
+  const [sel, setSel] = useState((initial && items.some((d) => d.key === initial) ? initial : items[0]?.key) ?? "");
   const [resolved, setResolved] = useState<Record<string, boolean>>({});
   const [choice, setChoice] = useState<Record<string, string>>({});
   const [note, setNote] = useState("");
