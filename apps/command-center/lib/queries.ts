@@ -1,8 +1,9 @@
 import "server-only";
-import { ADRS, DECISIONS, DELIVERABLES, PLAN_SOURCE, type Adr, type AdrStatus, type Decision, type Deliverable, type Owner, type Status } from "./data/plan";
+import { ADRS, DECISIONS, DELIVERABLES, PLAN_DAY, PLAN_SOURCE, type Adr, type AdrStatus, type Decision, type Deliverable, type Owner, type Status } from "./data/plan";
 import { DEMO_PARTNERS, type Partner } from "./data/demo";
-import { listAdrFiles, listBranches, listIssues, listOpenPulls, readRaw, type GhIssue } from "./sources/github";
+import { getRepo, listAdrFiles, listBranches, listIssues, listOpenPulls, readRaw, type GhIssue } from "./sources/github";
 import { fromDemo, fromStatic, type Sourced } from "./sources/types";
+import { planDayAt, todayInParis, type PlanDay } from "./plan-day";
 
 /* Convention de labels GitHub proposée (CC-M1_REPORT §5) :
  *   livrable · mission:a | mission:b | mission:commun · status:todo|doing|review|done · type:<x> · jours:3-4
@@ -137,6 +138,22 @@ export async function getOpenPullCount(): Promise<Sourced<number>> {
   const r = await listOpenPulls();
   if (r) return { value: r.data.length, source: "S1 · GitHub pulls", fetchedAt: r.fetchedAt, freshness: "live", demo: false };
   return { value: null, source: "S1 · GitHub pulls", fetchedAt: null, freshness: "unknown", demo: false };
+}
+
+/**
+ * Jour du plan M0. Début : PLAN_START (.env.local, AAAA-MM-JJ) s'il est renseigné,
+ * sinon la date de création du dépôt GitHub (le plan place la création du dépôt en J1).
+ */
+export async function getPlanDay(): Promise<Sourced<PlanDay>> {
+  const today = todayInParis();
+  const env = process.env.PLAN_START?.trim();
+  const fromEnv = env ? planDayAt(env, today, PLAN_DAY.total) : null;
+  if (fromEnv) return fromStatic(fromEnv, ".env.local · PLAN_START");
+  const repo = await getRepo();
+  const created = repo?.data.created_at ? todayInParis(new Date(repo.data.created_at)) : null;
+  const fromRepo = created ? planDayAt(created, today, PLAN_DAY.total) : null;
+  if (fromRepo && repo) return { value: fromRepo, source: "S1 · date de création du dépôt", fetchedAt: repo.fetchedAt, freshness: "live", demo: false };
+  return { value: null, source: "PLAN_START ou S1", fetchedAt: null, freshness: "unknown", demo: false };
 }
 
 /** S8 non branché en CC-M1 tant que l'accès Supabase n'est pas validé : démonstration signalée. */

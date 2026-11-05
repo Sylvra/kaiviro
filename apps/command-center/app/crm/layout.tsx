@@ -1,11 +1,19 @@
 import { CrmTabs } from "@/components/CrmTabs";
 import { NewDeliverable } from "@/components/NewDeliverable";
 import { Avatar, Pill, SourceNote } from "@/components/ui";
-import { getDecisions, getDeliverables } from "@/lib/queries";
-import { PLAN_DAY } from "@/lib/data/plan";
+import { getDecisions, getDeliverables, getPlanDay } from "@/lib/queries";
+import { MILESTONES, PLAN_DAY } from "@/lib/data/plan";
+import { phaseLabel } from "@/lib/plan-day";
+
+const frDate = (iso: string) => new Date(`${iso}T12:00:00Z`).toLocaleDateString("fr-FR", { day: "numeric", month: "long", timeZone: "UTC" });
 
 export default async function CrmLayout({ children }: { children: React.ReactNode }) {
-  const [deliv, decisions] = await Promise.all([getDeliverables(), getDecisions()]);
+  const [deliv, decisions, planDay] = await Promise.all([getDeliverables(), getDecisions(), getPlanDay()]);
+  const day = planDay.value;
+  const phase = phaseLabel(day, MILESTONES);
+  const dayTitle = day
+    ? `Début le ${frDate(day.start)} (${planDay.source}). Jours ouvrés, jours fériés non retirés.${day.over ? ` Dépassé de ${day.overBy} jour(s).` : ""}`
+    : "Jour inconnu : renseigner PLAN_START dans .env.local ou connecter GitHub.";
   const d = deliv.value ?? [];
   const done = d.filter((x) => x.status === 3).length;
   const C = 100.53;
@@ -19,7 +27,7 @@ export default async function CrmLayout({ children }: { children: React.ReactNod
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#A8432A" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden><rect x="3" y="4" width="18" height="16" rx="3" /><path d="M3 9h18M8 14h3M8 17h6" /></svg>
           </span>
           <div className="flex min-w-[240px] flex-1 flex-col gap-0.5">
-            <span className="flex flex-wrap items-center gap-2 text-xs text-ink-3">Espaces <span aria-hidden>›</span> M0 · Fondations · J1 → J{PLAN_DAY.total} <Pill tone="mint">Démarrage</Pill></span>
+            <span className="flex flex-wrap items-center gap-2 text-xs text-ink-3">Espaces <span aria-hidden>›</span> M0 · Fondations · J1 → J{PLAN_DAY.total} <Pill tone={day?.over ? "coral" : "mint"}>{phase}</Pill></span>
             <h1 className="text-[28px] font-bold leading-tight tracking-[-0.02em]">Command Center</h1>
           </div>
           <div className="flex flex-wrap items-center gap-2.5">
@@ -30,9 +38,12 @@ export default async function CrmLayout({ children }: { children: React.ReactNod
               </svg>
               <span className="flex flex-col leading-tight"><span className="text-[11px] text-ink-3">Avancement M0</span><span className="text-sm font-semibold tabular-nums">{done} / {d.length}</span></span>
             </div>
-            <div className="flex h-[46px] items-center gap-2.5 rounded-[14px] border border-line bg-surface-2 px-3.5">
-              <span className="flex flex-col leading-tight"><span className="text-[11px] text-ink-3">Jours</span><span className="text-sm font-semibold">J{PLAN_DAY.current} sur {PLAN_DAY.total}</span></span>
-              <span aria-hidden className="grid grid-cols-5 gap-[3px]">{Array.from({ length: PLAN_DAY.total }, (_, i) => <span key={i} className={`size-[7px] rounded-[2px] ${i < PLAN_DAY.current ? "bg-coral-dot" : "bg-[#e5dfd6]"}`} />)}</span>
+            <div title={dayTitle} data-source={planDay.source} className="flex h-[46px] items-center gap-2.5 rounded-[14px] border border-line bg-surface-2 px-3.5">
+              <span className="flex flex-col leading-tight">
+                <span className="text-[11px] text-ink-3">Jours{day ? ` · depuis le ${frDate(day.start)}` : ""}</span>
+                <span className="text-sm font-semibold">{day ? (day.current === 0 ? "Pas commencé" : `J${day.current} sur ${day.total}${day.over ? ` · +${day.overBy}` : ""}`) : "—"}</span>
+              </span>
+              <span aria-hidden className="grid grid-cols-5 gap-[3px]">{Array.from({ length: PLAN_DAY.total }, (_, i) => <span key={i} className={`size-[7px] rounded-[2px] ${day && i < day.current ? "bg-coral-dot" : "bg-[#e5dfd6]"}`} />)}</span>
             </div>
             <div className="flex items-center">
               <Avatar initials="JB" tone="mint" size={34} title="Johan — Mission A" />

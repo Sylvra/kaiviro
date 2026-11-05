@@ -13,7 +13,8 @@ const GROUPS: { o: Owner; label: string }[] = [
   { o: "B", label: "Mission B — Stack applicative" },
 ];
 
-export function Gantt({ items }: { items: Deliverable[] }) {
+/** current : jour réel du plan (0 = pas commencé, null = inconnu). */
+export function Gantt({ items, current }: { items: Deliverable[]; current: number | null }) {
   const [showMs, setShowMs] = useState(true);
   const days = Array.from({ length: PLAN_DAY.total }, (_, i) => i + 1);
   const rows: ({ kind: "group"; o: Owner; label: string } | { kind: "task"; d: Deliverable })[] = [];
@@ -39,8 +40,8 @@ export function Gantt({ items }: { items: Deliverable[] }) {
           <span className="pb-2 text-[11px] font-semibold uppercase tracking-[0.06em] text-ink-3">Livrable</span>
           {days.map((n) => (
             <span key={n} className="flex flex-col items-center gap-0.5 border-b border-line-soft pb-2">
-              <span className={cx("font-mono text-[11px] font-semibold", n === PLAN_DAY.current ? "text-coral-ink" : "text-ink-3")}>J{n}</span>
-              <span className={cx("size-1.5 rounded-full", n === PLAN_DAY.current ? "bg-coral-dot" : "bg-transparent")} />
+              <span aria-current={n === current ? "date" : undefined} className={cx("font-mono text-[11px] font-semibold", n === current ? "text-coral-ink" : "text-ink-3")}>J{n}</span>
+              <span className={cx("size-1.5 rounded-full", n === current ? "bg-coral-dot" : "bg-transparent")} />
             </span>
           ))}
 

@@ -1,9 +1,8 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { Sidebar } from "@/components/Sidebar";
-import { getDecisions, getDeliverables } from "@/lib/queries";
+import { getDecisions, getDeliverables, getPlanDay } from "@/lib/queries";
 import { getSourceStatuses } from "@/lib/sources/registry";
-import { PLAN_DAY } from "@/lib/data/plan";
 
 export const metadata: Metadata = {
   title: { default: "KAIVIRO — Command Center", template: "%s · KAIVIRO" },
@@ -16,7 +15,8 @@ export const revalidate = 60;
 const pct = (a: number, b: number) => (b === 0 ? 0 : Math.round((a / b) * 100));
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  const [deliv, decisions, sources] = await Promise.all([getDeliverables(), getDecisions(), getSourceStatuses()]);
+  const [deliv, decisions, sources, planDay] = await Promise.all([getDeliverables(), getDecisions(), getSourceStatuses(), getPlanDay()]);
+  const day = planDay.value;
   const d = deliv.value ?? [];
   const of = (o: string) => d.filter((x) => x.owner === o);
   const done = (xs: typeof d) => xs.filter((x) => x.status === 3).length;
@@ -24,7 +24,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const counts = {
     myOpen: of("A").filter((x) => x.status !== 3).length,
     decisionsOpen: (decisions.value ?? []).filter((x) => !x.resolved).length,
-    day: `J${PLAN_DAY.current}`,
+    day: day ? (day.current === 0 ? "J0" : `J${day.current}`) : "J?",
     spaces: [
       { name: "Fondations M0", href: "/crm/tableau", pct: pct(done(d), d.length), meta: `${d.length} livrables · 2 missions`, dot: "bg-coral-dot" },
       { name: "Command Center", href: "/crm/equipe", pct: pct(done(of("A")), of("A").length), meta: "Mission A · Johan", dot: "bg-mint-dot" },

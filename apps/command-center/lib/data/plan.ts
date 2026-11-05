@@ -103,4 +103,5 @@ export const PEOPLE = [
     branch: "prompts/MISSION_B.md", scope: ["Aucun fait automobile inventé", "PR vers develop"] },
 ];
 
-export const PLAN_DAY = { current: 1, total: 10 };
+/** Durée du plan M0 en jours ouvrés. Le jour courant est calculé par getPlanDay() (lib/queries.ts). */
+export const PLAN_DAY = { total: 10 };

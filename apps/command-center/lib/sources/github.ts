@@ -36,6 +36,11 @@ async function gh<T>(path: string, revalidate = 300): Promise<{ data: T; fetched
   }
 }
 
+/** Métadonnées du dépôt (date de création : début du plan M0 par défaut). Cache d'une heure. */
+export async function getRepo() {
+  return gh<{ full_name: string; created_at: string }>(`/repos/${process.env.GITHUB_REPO}`, 3600);
+}
+
 export async function pingGithub(): Promise<boolean> {
   const r = await gh<{ full_name: string }>(`/repos/${process.env.GITHUB_REPO}`, 60);
   return r !== null;
