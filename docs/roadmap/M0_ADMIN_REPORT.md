@@ -106,7 +106,7 @@ Aucun fichier de B ni des humains n'a été modifié.
 | `docs/security/DATA_CLASSIFICATION.md` | B | Ajouter une classe « données CRM d'administration » et les agrégats du Command Center |
 | `docs/architecture/DEPLOYMENT_MODEL.md` | B | Mentionner la Pi comme hôte de supervision et, si ADR-0014 est acceptée, du Command Center statique |
 | `CLAUDE.md` | humains | §3 : la règle 11 est placée entre 6 et 7, renuméroter. §6 : préciser si l'en-tête YAML s'applique aussi aux ADR (la mission A a mis les deux) |
-| `CLAUDE.md`, `README.md`, `M0_PLAN.md` | humains | Lint : blocs de code sans langage (CLAUDE.md l. 81 et 98, M0_PLAN l. 31) ; titres sans ligne vide en dessous (README l. 7, 10, 15 ; M0_PLAN l. 96, 108, 119, 122). La CI `docs-checks` les signalera |
+| `CLAUDE.md`, `README.md`, `M0_PLAN.md` | humains | Lint : blocs de code sans langage (MD040), titres et listes sans ligne vide autour (MD022, MD032). Relevés par la CI : 11 écarts dans CLAUDE.md, 4 dans README.md, 8 dans M0_PLAN.md (run 42001446382). Ces trois fichiers sont **exclus** de markdownlint dans `.markdownlint-cli2.yaml` pour respecter la matrice de propriété. Après correction par les humains, retirer les trois lignes `ignores` |
 | `README.md` | humains | « open source » alors que le dépôt est privé : préciser (impact ADR-0015) |
 | `scripts/` | humains | Versionner le hook `pre-push` (ex. `scripts/git-hooks/pre-push`) et l'activer par `core.hooksPath` (ADR-0001) |
 
@@ -141,7 +141,7 @@ Contrôles attendus après chaque étape : tableau de [RASPBERRY_PI_ADMIN_CENTER
 | Pi unique : supervision aveugle en cas de panne | Moyen | La Pi n'est pas critique pour l'app ; sonde externe à décider |
 | Calendrier B : module `admin` non prêt pour CC-M1 | Moyen | Option C provisoire en local sur démo |
 | Tags d'images non vérifiés sur arm64, digests absents | Faible | Vérification par Johan avant tout lancement |
-| CI : markdownlint signalera des fichiers humains | Faible | Corrections proposées en §6 |
+| Fichiers humains exclus du lint Markdown : régressions invisibles | Faible | Corrections proposées en §6, exclusion à retirer ensuite |
 | Contradiction thème clair (maquette) / sombre (prompt) | Faible | Ivoire par défaut, Nuit en option, décision humaine |
 | Données personnelles de partenaires dans le CRM | Moyen | Rôles, minimisation, conservation limitée |
 
@@ -169,6 +169,12 @@ Date : 05/11/2026, poste Windows de Johan, sans installation d'outil.
 | nftables | `nft -c` indisponible sous Windows | Non exécuté. À faire par Johan sur la Pi |
 | Matrice de propriété | `git diff origin/develop...HEAD` | **Aucun fichier de B ni des humains modifié** |
 | Contrastes WCAG | calcul de luminance relative (script local) | 23 paires vérifiées, toutes ≥ 4,5:1 ([DESIGN_SYSTEM §2.4](../command-center/DESIGN_SYSTEM.md)) |
+
+Première exécution de la CI sur la PR (run 42001446382) : 3 contrôles sur 5 en échec, tous liés à la configuration. Corrections :
+
+- scan de secrets : permission `pull-requests: read` ajoutée au job (403 sur la liste des commits de la PR) ;
+- lychee : option `--include-fragments=false` invalide retirée ;
+- markdownlint : `MD025` ignore désormais le `title:` de l'en-tête YAML ; les trois fichiers humains sont exclus (§6).
 
 Versions relevées en ligne (API GitHub publique, PyPI), en lecture seule : SHA des actions GitHub, dernières releases des images Docker, versions des validateurs Python. À revérifier au moment de l'application.
 
