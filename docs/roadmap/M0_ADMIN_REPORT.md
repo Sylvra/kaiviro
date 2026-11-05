@@ -116,11 +116,11 @@ Ordre (détail : [RASPBERRY_PI_ADMIN_CENTER §4](../operations/RASPBERRY_PI_ADMI
 
 1. Raspberry Pi OS Lite 64 bits sur SSD (Imager : utilisateur nominatif, clé SSH seule).
 2. Démarrage sur SSD, `apt full-upgrade`, `rpi-eeprom-update`.
-3. Comptes nominatifs, groupe `kaiviro-admins`, `sudo` avec mot de passe.
-4. SSH : `10-kaiviro-hardening.conf`, `sshd -t`, test dans une seconde session.
+3. Comptes nominatifs, `sudo` avec mot de passe. **Créer `kaiviro-admins` et y ajouter chaque admin** (vérifier avec `id`).
+4. SSH : `10-kaiviro-hardening.conf` seulement après l'étape 3, `sshd -t`, test dans une seconde session.
 5. Relever : CGNAT ou non, possibilité de redirection UDP, plage LAN.
 6. VPN selon décision (WireGuard proposé, Tailscale en repli).
-7. Pare-feu `nftables.conf` adapté, appliqué avec filet de retour arrière.
+7. Pare-feu `nftables.conf` : remplacer `LAN_ADMIN` (adresse d'exemple `192.0.2.10`) par l'IP réelle du poste, adapter les interfaces, appliquer avec le filet qui retire la seule table `kaiviro_filter`.
 8. `unattended-upgrades`.
 9. Docker Engine (dépôt officiel), sans groupe `docker` pour les admins.
 10. Vérifier tags et digests arm64, puis `compose --profile uptime up -d`.
@@ -141,6 +141,7 @@ Contrôles attendus après chaque étape : tableau de [RASPBERRY_PI_ADMIN_CENTER
 | Pi unique : supervision aveugle en cas de panne | Moyen | La Pi n'est pas critique pour l'app ; sonde externe à décider |
 | Calendrier B : module `admin` non prêt pour CC-M1 | Moyen | Option C provisoire en local sur démo |
 | Tags d'images non vérifiés sur arm64, digests absents | Faible | Vérification par Johan avant tout lancement |
+| Verrouillage hors de la Pi (adresse d'exemple `LAN_ADMIN`, groupe `kaiviro-admins` absent) | Moyen | Avertissements explicites dans la procédure et les fichiers, console locale ou filet de 2 minutes |
 | Fichiers humains exclus du lint Markdown : régressions invisibles | Faible | Corrections proposées en §6, exclusion à retirer ensuite |
 | Contradiction thème clair (maquette) / sombre (prompt) | Faible | Ivoire par défaut, Nuit en option, décision humaine |
 | Données personnelles de partenaires dans le CRM | Moyen | Rôles, minimisation, conservation limitée |
@@ -175,6 +176,13 @@ Première exécution de la CI sur la PR (run 42001446382) : 3 contrôles sur 5 e
 - scan de secrets : permission `pull-requests: read` ajoutée au job (403 sur la liste des commits de la PR) ;
 - lychee : option `--include-fragments=false` invalide retirée ;
 - markdownlint : `MD025` ignore désormais le `title:` de l'en-tête YAML ; les trois fichiers humains sont exclus (§6).
+
+Corrections après relecture de la PR :
+
+- `nftables.conf` : la chaîne `forward` en `drop` aurait bloqué Docker (un drop est définitif en nftables, quelles que soient les règles de Docker). Elle accepte désormais les réseaux Docker et le trafic VPN vers les conteneurs, et refuse le routage du VPN vers le LAN. `flush ruleset` remplacé par la suppression et recréation de la seule table `inet kaiviro_filter`. Même correction pour le filet de sécurité du README réseau.
+- `backup.sh` : un échec de `restic forget --prune` écrit maintenant un état `partial` avec un message, puis sort en code 3. Avant, l'ancien état « succeeded » restait affiché.
+- Risque de verrouillage : l'adresse d'exemple `LAN_ADMIN` et la création préalable du groupe `kaiviro-admins` sont rendues explicites dans la procédure et les fichiers.
+- Non vérifié : syntaxe nftables (`nft -c`) impossible sous Windows, à faire par Johan sur la Pi.
 
 Versions relevées en ligne (API GitHub publique, PyPI), en lecture seule : SHA des actions GitHub, dernières releases des images Docker, versions des validateurs Python. À revérifier au moment de l'application.
 

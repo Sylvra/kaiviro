@@ -62,9 +62,17 @@ Prérequis matériels à confirmer par Johan : modèle de RAM, SSD NVMe et carte
 - Un compte par humain (`johan`, `<collègue>`), clés SSH distinctes, groupe `kaiviro-admins`.
 - `sudo` avec mot de passe local (pas de `NOPASSWD`).
 - Aucun compte partagé, aucun compte de service avec shell.
+- **Créer le groupe et y ajouter chaque admin avant l'étape 4.3** : sans cela, `AllowGroups kaiviro-admins` refuse toutes les connexions SSH.
+
+  ```bash
+  sudo groupadd kaiviro-admins
+  sudo usermod -aG kaiviro-admins johan        # répéter pour chaque admin
+  id johan                                     # doit afficher kaiviro-admins
+  ```
 
 ### 4.3 SSH
 
+- **Prérequis** : groupe `kaiviro-admins` créé et utilisateur ajouté (§4.2), vérifié avec `id`.
 - Copier [`10-kaiviro-hardening.conf`](../../infrastructure/raspberry-pi/sshd_config.d/10-kaiviro-hardening.conf) dans `/etc/ssh/sshd_config.d/`.
 - Vérifier avant de recharger, **en gardant une session ouverte** :
 
@@ -77,7 +85,9 @@ Prérequis matériels à confirmer par Johan : modèle de RAM, SSD NVMe et carte
 ### 4.4 Pare-feu
 
 - Proposition : nftables avec [`nftables.conf`](../../infrastructure/network/nftables.conf). Alternative : ufw.
-- Appliquer **depuis la console locale** ou avec une tâche de retour arrière programmée, pour éviter de se bloquer dehors.
+- **Avant d'appliquer** : remplacer `LAN_ADMIN = { 192.0.2.10 }` par l'IP réelle du poste admin. `192.0.2.10` est une adresse d'exemple (TEST-NET) : laissée telle quelle, elle bloque SSH depuis le LAN tant que le VPN n'est pas actif. Adapter aussi `WAN_IF` et `VPN_IF`.
+- Le fichier ne gère que la table `inet kaiviro_filter` et laisse passer le trafic des réseaux Docker. Il ne vide jamais les tables de Docker.
+- Appliquer **depuis la console locale** ou avec le filet de sécurité décrit dans [`infrastructure/network/README.md`](../../infrastructure/network/README.md), qui retire la seule table KAIVIRO après 2 minutes.
 
 ### 4.5 Mises à jour
 
