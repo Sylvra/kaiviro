@@ -98,8 +98,8 @@ async function write<T>(method: "POST" | "PATCH", path: string, body: unknown): 
 const asIssue = (r: { ok: true; data: GhIssue } | { ok: false; status: number }): WriteResult =>
   r.ok ? { ok: true, issue: r.data } : r;
 
-/** Niveau 2 (ADR-0012) : modifie les labels et/ou l'état d'une issue. Exige un jeton avec Issues: write. */
-export async function updateIssue(n: number, patch: { labels?: string[]; state?: "open" | "closed"; state_reason?: "completed" | "reopened" }): Promise<WriteResult> {
+/** Niveau 2 (ADR-0012) : modifie titre, corps, labels et/ou état d'une issue. Exige un jeton avec Issues: write. */
+export async function updateIssue(n: number, patch: { title?: string; body?: string; labels?: string[]; state?: "open" | "closed"; state_reason?: "completed" | "reopened" }): Promise<WriteResult> {
   return asIssue(await write<GhIssue>("PATCH", `/issues/${n}`, patch));
 }
 

@@ -33,6 +33,38 @@ export function newDeliverableIssue(d: { title: string; mission: "commun" | "a" 
   };
 }
 
+export interface DeliverableEdit {
+  title?: string;
+  mission?: "commun" | "a" | "b";
+  kind?: string;
+  days?: [number, number];
+  /** chaîne vide : retire la ligne « Chemin : » */
+  path?: string;
+}
+
+/** Remplace la ligne « Chemin : » du corps (ou l'ajoute en tête, ou la retire si path est vide). */
+export function withPath(body: string | null, path: string): string {
+  const b = body ?? "";
+  const line = path.trim() ? `Chemin : \`${path.trim().replace(/`/g, "")}\`` : "";
+  if (/^Chemin\s*:.*$/m.test(b)) return b.replace(/^Chemin\s*:.*$/m, line).replace(/^\n+/, "").replace(/\n{3,}/g, "\n\n").trim();
+  return line ? `${line}${b.trim() ? `\n\n${b.trim()}` : ""}` : b;
+}
+
+/** Patch GitHub d'une modification de livrable : titre, labels mission/type/jours, ligne Chemin. Statut inchangé. */
+export function editPatch(issue: { title: string; body: string | null; labels: string[] }, e: DeliverableEdit) {
+  const replace = (labels: string[], prefix: string, value: string | undefined) =>
+    value === undefined ? labels : [...labels.filter((n) => !n.startsWith(prefix)), `${prefix}${value}`];
+  let labels = issue.labels;
+  labels = replace(labels, "mission:", e.mission);
+  labels = replace(labels, "type:", e.kind?.trim());
+  labels = replace(labels, "jours:", e.days ? `${e.days[0]}-${e.days[1]}` : undefined);
+  return {
+    ...(e.title !== undefined && e.title.trim() !== issue.title ? { title: e.title.trim() } : {}),
+    ...(e.path !== undefined ? { body: withPath(issue.body, e.path) } : {}),
+    labels,
+  };
+}
+
 export interface IssueComment { id: number; author: string; body: string; at: string; url: string }
 
 export function toComment(c: GhComment): IssueComment {

@@ -5,15 +5,16 @@ import { useRouter } from "next/navigation";
 import { Plus, X } from "lucide-react";
 import { cx } from "./ui";
 
-const MISSIONS = [
+// Partagés avec le formulaire de modification de la fiche (DeliverableSheet).
+export const MISSIONS = [
   { value: "commun", label: "Commun" },
   { value: "a", label: "Mission A" },
   { value: "b", label: "Mission B" },
 ] as const;
-const KINDS = ["Setup", "Docs", "Doc", "Spec", "Contrat", "Sécurité", "Infra", "Produit", "Auto", "IA", "Accès", "Rapport", "Tâche"];
-const DAYS = Array.from({ length: 10 }, (_, i) => i + 1);
+export const KINDS = ["Setup", "Docs", "Doc", "Spec", "Contrat", "Sécurité", "Infra", "Produit", "Auto", "IA", "Accès", "Rapport", "Tâche"];
+export const DAYS = Array.from({ length: 10 }, (_, i) => i + 1);
 
-const field = "h-10 rounded-xl border border-[#e5dfd6] bg-surface-2 px-3 text-[13px] font-normal text-ink focus-visible:border-accent";
+export const field = "h-10 rounded-xl border border-[#e5dfd6] bg-surface-2 px-3 text-[13px] font-normal text-ink focus-visible:border-accent";
 
 /** Bouton « Nouveau » : crée un livrable (issue GitHub « livrable », statut À faire). */
 export function NewDeliverable({ live }: { live: boolean }) {

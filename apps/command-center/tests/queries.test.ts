@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { getAdrs, getDeliverables, getPartners, issueToDeliverable, parseAdrStatus, splitDecisionBody, statusPatch, newDeliverableIssue, decisionComment, deliverableNotes, toComment } from "@/lib/queries";
+import { getAdrs, getDeliverables, getPartners, issueToDeliverable, parseAdrStatus, splitDecisionBody, statusPatch, newDeliverableIssue, decisionComment, deliverableNotes, toComment, editPatch, withPath } from "@/lib/queries";
 import { DELIVERABLES } from "@/lib/data/plan";
 
 afterEach(() => vi.unstubAllEnvs());
@@ -66,6 +66,17 @@ describe("conversion GitHub", () => {
     expect(deliverableNotes("Chemin : `docs/x.md`\n\nSource : plan.\n\nEn revue dans la PR #2.")).toBe("Source : plan.\n\nEn revue dans la PR #2.");
     expect(deliverableNotes(null)).toBe("");
     expect(toComment({ id: 1, body: null, user: null, created_at: "2026-11-05T10:00:00Z", html_url: "u" })).toEqual({ id: 1, author: "inconnu", body: "", at: "2026-11-05T10:00:00Z", url: "u" });
+  });
+  it("modifie un livrable : labels remplacés, statut gardé, chemin réécrit", () => {
+    const issue = { title: "VPN", body: "Chemin : `docs/a.md`\n\nSource : plan.", labels: ["livrable", "mission:a", "status:doing", "type:Infra", "jours:7-8"] };
+    expect(editPatch(issue, { title: "VPN Pi", mission: "commun", days: [8, 9], path: "docs/b.md" })).toEqual({
+      title: "VPN Pi",
+      body: "Chemin : `docs/b.md`\n\nSource : plan.",
+      labels: ["livrable", "status:doing", "type:Infra", "mission:commun", "jours:8-9"],
+    });
+    expect(editPatch(issue, { title: "VPN" })).toEqual({ labels: issue.labels }); // titre identique : rien à écrire
+    expect(withPath("Source : plan.", "docs/c.md")).toBe("Chemin : `docs/c.md`\n\nSource : plan.");
+    expect(withPath("Chemin : `x`\n\nSource : plan.", "")).toBe("Source : plan.");
   });
   it("lit le statut d'une ADR", () => {
     expect(parseAdrStatus("# ADR-0001 — Monorepo\nStatut : ACCEPTED\nDate : 2026-11-10")).toBe("ACCEPTED");
