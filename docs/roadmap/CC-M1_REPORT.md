@@ -57,6 +57,7 @@ Aucun template acheté n'est utilisé ni présent. Le style s'inspire du niveau 
 - Corps d'une issue livrable : ligne `Chemin : \`docs/...\``. Corps d'une issue décision : résumé, contexte, puis `## Options` en liste.
 - **Appliquée le 2026-11-05** (choix de Johan) : labels créés, issues #3 à #22 (20 livrables, statuts réels) et #23 à #28 (6 décisions ; #27 « Protection des branches » close : hook `pre-push` local, pas de GitHub Pro).
 - **Écriture du statut activée** (niveau 2) : `PATCH /api/admin/v1/deliverables/gh-{n}` remplace le label `status:*` et ferme l'issue en Terminé. Sans authentification avant CC-M3 (ADR-0012) : serveur lié à 127.0.0.1, JSON obligatoire, origine identique exigée. Tableau, Planning et Décisions sont rendus à chaque requête.
+- **Création et décisions** (même garde, `lib/api/guard.ts`) : bouton « Nouveau » → `POST /api/admin/v1/deliverables` (issue `livrable`, À faire) ; Décisions → `POST /api/admin/v1/decisions/gh-{n}` pour publier un avis (commentaire), trancher (option retenue en commentaire + fermeture) ou rouvrir. L'ADR liée reste mise à jour par PR.
 
 ## 6. Ce que Johan doit fournir
 
