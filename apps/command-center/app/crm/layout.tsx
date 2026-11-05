@@ -12,7 +12,7 @@ export default async function CrmLayout({ children }: { children: React.ReactNod
   const day = planDay.value;
   const phase = phaseLabel(day, MILESTONES);
   const dayTitle = day
-    ? `Début le ${frDate(day.start)} (${planDay.source}). Jours ouvrés, jours fériés non retirés.${day.over ? ` Dépassé de ${day.overBy} jour(s).` : ""}`
+    ? `Début le ${frDate(day.start)} (${planDay.source}). Jours ouvrés, hors week-ends et jours fériés nationaux.${day.over ? ` Dépassé de ${day.overBy} jour(s).` : ""}`
     : "Jour inconnu : renseigner PLAN_START dans .env.local ou connecter GitHub.";
   const d = deliv.value ?? [];
   const done = d.filter((x) => x.status === 3).length;
