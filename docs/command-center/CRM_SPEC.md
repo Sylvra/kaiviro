@@ -96,6 +96,7 @@ Questions aux humains :
 4. Les véhicules d'essai appartenant à des tiers sont-ils enregistrés ? Si oui, sans immatriculation ni VIN par défaut.
 
 ### 5.1 Tableau (kanban des livrables)
+
 - **Contenu** : livrables par mission (Commun, A, B) en 4 colonnes : À faire, En cours, En revue, Terminé. Étiquettes mission + type, chemin dans le dépôt, échéance (J-x ou date), responsable.
 - **Source** : S1. Un livrable = une issue GitHub avec labels `mission:a|b|commun`, `type:*`, champ jalon. Colonnes = statut du GitHub Project (ou labels `status:*`).
 - **Actions** : déplacer une carte (niveau 2, écrit dans GitHub), filtrer par mission, ouvrir l'issue.
@@ -104,17 +105,20 @@ Questions aux humains :
 - **Mobile** : colonnes en défilement horizontal, filtres en haut.
 
 ### 5.2 Planning
+
 - **Contenu** : Gantt par mission, jalons (losanges) activables, ligne du jour.
 - **Source** : S1 (jalons GitHub + dates des issues). M0 : plan figé de M0_PLAN §5.
 - **Actions** : basculer jalons, plage 2 / 4 semaines (CC-M1+).
 - **Mobile** : liste chronologique au lieu du Gantt.
 
 ### 5.3 Équipe
+
 - **Contenu** : Johan (Mission A), le collègue (Mission B), Claude Code A et B. Rôle, branche, périmètre, avancement, présence.
 - **Source** : S8 (comptes admin, rôles) + S1 (activité, branches). Présence : dernière action dans le Command Center, jamais de suivi continu.
 - **Agents** : statut dérivé de la branche (dernier commit, PR ouverte), jamais d'accès direct à l'instance.
 
 ### 5.4 Partenaires (CRM)
+
 - **Entités** : `Partner { id, type: garage|obd_supplier|beta_tester|other, name, stage, next_action, due_at, owner_admin_id, equipment, consent_status, notes, created_at, updated_at }` ; `PartnerEvent { partner_id, at, kind, summary, by }`.
 - **Étapes** (à confirmer) : À contacter → En discussion → Partenaire actif → En pause. v0.2 propose une cinquième étape « Clos » (relation terminée, déclenche le délai de conservation §5.8). Codes API : `to_contact`, `in_discussion`, `active`, `paused`, `closed`.
 - **Permissions** : Administrator et Owner seulement. Viewer et Developer ne voient pas les partenaires (données personnelles).
@@ -124,6 +128,7 @@ Questions aux humains :
 - **Démonstration** : badge tant que S8 n'est pas branché.
 
 ### 5.5 Décisions
+
 - **Contenu** : décisions à trancher, avec contexte, options, responsable, ADR liée, statut (À trancher / Tranchée).
 - **Source** : S1 — issues label `decision` + lien vers l'ADR ; S2 pour le statut final.
 - **Actions** : commenter (écrit un commentaire GitHub), marquer tranchée (ferme l'issue et rappelle d'écrire/mettre à jour l'ADR).

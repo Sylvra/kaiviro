@@ -1,5 +1,5 @@
 ---
-title: ADR-0012 — Command Center : accès et autorisations
+title: "ADR-0012 — Command Center : accès et autorisations"
 owner: mission-a
 status: PROPOSED
 version: 0.1
