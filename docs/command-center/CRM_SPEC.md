@@ -2,15 +2,17 @@
 title: Command Center et CRM d'administration — cahier de liaison
 owner: mission-a
 status: DRAFT
-version: 0.1
-updated: 2026-11-03
+version: 0.2
+updated: 2026-11-05
 ---
 
 # Command Center et CRM d'administration — cahier de liaison
 
 Ce document relie chaque écran de la maquette validée côté style (« KAIVIRO — CRM Admin », artifact Design du 03/11/2026) à ses données : source, mode de collecte, fréquence, permissions, état « inconnu » et phase de livraison. C'est la référence de construction de `apps/command-center` en CC-M1 et au-delà.
 
-Documents liés : [M0_PLAN](../roadmap/M0_PLAN.md) · ADMIN_ARCHITECTURE · OBSERVABILITY_CONTRACT · ADMIN_PERMISSIONS · ADR-0012, ADR-0014, ADR-0015.
+Documents liés : [M0_PLAN](../roadmap/M0_PLAN.md) · [ADMIN_ARCHITECTURE](../architecture/ADMIN_ARCHITECTURE.md) · [OBSERVABILITY_CONTRACT](../architecture/OBSERVABILITY_CONTRACT.md) · [ADMIN_PERMISSIONS](../security/ADMIN_PERMISSIONS.md) · [COMMAND_CENTER_SPEC](COMMAND_CENTER_SPEC.md) · [DESIGN_SYSTEM](DESIGN_SYSTEM.md) · [ADR-0012](../adr/ADR-0012-command-center-acces.md), [ADR-0014](../adr/ADR-0014-stack-front-command-center-3d.md), [ADR-0015](../adr/ADR-0015-crm-et-template-tiers.md).
+
+Historique : v0.1 (03/11/2026) rédigée avec Johan à partir de la maquette. v0.2 (05/11/2026, mission A) : liens réels, périmètre CRM proposé (§5.0), modules candidats retours/support et registre (§5.6, §5.7), conservation des données (§5.8), précisions sur S3 et S8, alignement avec l'OpenAPI.
 
 ## 1. Principes non négociables
 
@@ -37,7 +39,9 @@ Inspiration de niveau de finition : templates Sable et Kanbo (buildindex.dev). O
 | Mouvement | Ressort léger au survol des cartes, fondu + glissement de 6 px au changement de vue ; tout coupé sous `prefers-reduced-motion` |
 | Accessibilité | Vrais `<button>`/`<a>`/`<input>`, focus visible teal 2 px, contrastes vérifiés, couleur jamais seule porteuse de sens |
 
-Stack proposée (à valider en ADR-0014) : Next.js + TypeScript, Tailwind CSS, Framer Motion, icônes Lucide. Les composants issus d'un template acheté restent isolés et hors de tout dépôt public (ADR-0015).
+Stack proposée (à valider en ADR-0014) : Next.js + TypeScript, Tailwind CSS, Framer Motion, icônes Lucide. Les composants issus d'un template acheté restent isolés dans `apps/command-center/vendor/<nom>/` et hors de tout dépôt public (ADR-0015).
+
+Note v0.2 : le prompt de mission A décrit un style « dark premium ». La maquette validée ci-dessus est claire. Ce tableau reste la référence. Un thème sombre « Nuit » est proposé en option dans [DESIGN_SYSTEM §2.2](DESIGN_SYSTEM.md), à trancher par les humains.
 
 ## 3. Structure de l'application
 
@@ -64,7 +68,32 @@ Deux espaces, une même coque (barre latérale + en-tête) :
 
 Règle : une source non branchée affiche « non connectée » partout où elle intervient. Le compteur « Sources connectées x / 9 » de la barre latérale reflète ce tableau.
 
+Précisions v0.2 :
+
+- **S3 (vault Drive)** : nécessite un accès Google en lecture seule côté serveur (compte de service ou OAuth), donc une décision humaine et un secret géré selon ADR-0011. Portée limitée au dossier du vault, **jamais** au dossier des credentials. Le Command Center affiche titres, dates et liens, pas le contenu. Tant que ce n'est pas décidé, S3 reste « non connectée ».
+- **S8 (Supabase · schéma `admin`)** : Supabase est l'hébergeur **candidat** d'ADR-0004 (mission B), pas une décision. Le contrat porte sur un schéma PostgreSQL `admin`, quel que soit l'hébergeur.
+- **S1 (GitHub)** : jeton à portée minimale (lecture du dépôt, écriture des issues seulement pour les actions N2). Jamais de droit d'administration du dépôt.
+- Format de réponse de chaque source : enveloppe [`freshness`](../../packages/schemas/ops/freshness.schema.json).
+
 ## 5. Espace CRM
+
+### 5.0 Périmètre proposé (à trancher par les humains, ADR-0015)
+
+Le CRM est un back-office pour deux administrateurs. Pas de collecte publicitaire, pas de profilage, pas de scoring de personnes.
+
+| Module candidat | Proposition | Phase | Justification |
+|---|---|---|---|
+| Pilotage du projet (Tableau, Planning, Équipe, Décisions) | **Retenu** | CC-M1 | Sources déjà disponibles (GitHub, ADR), aucune donnée personnelle sensible |
+| Partenaires et contacts (garages, fournisseurs OBD, bêta-testeurs) | **Retenu** | CC-M1 | Besoin immédiat pour organiser les essais ; données professionnelles minimales |
+| Registre des accès admin et du matériel de test | **Retenu, partie matériel en CC-M1, partie accès en CC-M3** | CC-M1 / CC-M3 | Traçabilité des adaptateurs et véhicules d'essai ; revue des accès (ACCESS_MANAGEMENT) |
+| Retours et support utilisateurs, agrégés | **Reporté** | M7 | Dépend de l'app publiée et de DATA_CLASSIFICATION (B) |
+
+Questions aux humains :
+
+1. Valider ou modifier les quatre lignes ci-dessus.
+2. Étapes du pipeline partenaires (§5.4).
+3. Durées de conservation (§5.8).
+4. Les véhicules d'essai appartenant à des tiers sont-ils enregistrés ? Si oui, sans immatriculation ni VIN par défaut.
 
 ### 5.1 Tableau (kanban des livrables)
 - **Contenu** : livrables par mission (Commun, A, B) en 4 colonnes : À faire, En cours, En revue, Terminé. Étiquettes mission + type, chemin dans le dépôt, échéance (J-x ou date), responsable.
@@ -87,7 +116,8 @@ Règle : une source non branchée affiche « non connectée » partout où elle 
 
 ### 5.4 Partenaires (CRM)
 - **Entités** : `Partner { id, type: garage|obd_supplier|beta_tester|other, name, stage, next_action, due_at, owner_admin_id, equipment, consent_status, notes, created_at, updated_at }` ; `PartnerEvent { partner_id, at, kind, summary, by }`.
-- **Étapes** (à confirmer) : À contacter → En discussion → Partenaire actif → En pause.
+- **Étapes** (à confirmer) : À contacter → En discussion → Partenaire actif → En pause. v0.2 propose une cinquième étape « Clos » (relation terminée, déclenche le délai de conservation §5.8). Codes API : `to_contact`, `in_discussion`, `active`, `paused`, `closed`.
+- **Permissions** : Administrator et Owner seulement. Viewer et Developer ne voient pas les partenaires (données personnelles).
 - **Source** : S8, tables `admin.partners`, `admin.partner_events`.
 - **Actions** : créer, éditer, changer d'étape, planifier une action (niveau 2) ; supprimer (niveau 3, confirmation, journalisé).
 - **Données personnelles** : nom, rôle, contact professionnel uniquement. Consentement suivi pour les bêta-testeurs. Durée de conservation définie dans DATA_CLASSIFICATION ; export et suppression sur demande.
@@ -98,6 +128,40 @@ Règle : une source non branchée affiche « non connectée » partout où elle 
 - **Source** : S1 — issues label `decision` + lien vers l'ADR ; S2 pour le statut final.
 - **Actions** : commenter (écrit un commentaire GitHub), marquer tranchée (ferme l'issue et rappelle d'écrire/mettre à jour l'ADR).
 - **Décisions ouvertes au 03/11/2026** : périmètre du CRM (ADR-0015), étapes du pipeline, Tailscale vs WireGuard, Supabase hébergeur (ADR-0004), protection des branches (ADR-0001), nom KAIVIRO (ADR-0013).
+- **Mise à jour 05/11/2026** : protection des branches indisponible sur GitHub Free pour un dépôt privé (HTTP 403). Règle écrite et hook local `pre-push` en place ; voir ADR-0001. Tailscale vs WireGuard : comparatif dans [NETWORK_AND_VPN](../operations/NETWORK_AND_VPN.md).
+
+### 5.6 Retours et support utilisateurs (candidat, reporté M7)
+
+- **Entités** : `FeedbackAggregate { period, app_version, category, count, trend }` ; `SupportTicket { id, category, status, opened_at, closed_at, app_version, summary_redacted }`.
+- **Écrans** : tendances par catégorie et version ; liste de tickets sans identité.
+- **Source** : backend de B, après classification (DATA_CLASSIFICATION).
+- **Actions** : N1 consulter ; N2 changer le statut d'un ticket.
+- **Permissions** : Administrator et Owner.
+- **Données sensibles** : aucune identité, aucun contenu de conversation IA, aucun VIN. Texte libre résumé et expurgé côté backend.
+- **Conservation** : à définir par B (DATA_CLASSIFICATION).
+
+### 5.7 Registre des accès et du matériel de test (candidat)
+
+- **Entités** : `TestEquipment { id, kind: obd_adapter|phone|vehicle|other, label, model, firmware, owner: project|partner, partner_id, location, status, acquired_at, notes }` ; `AccessGrant { id, admin_id, system: github|vpn|pi|cloud|command_center, role, granted_at, granted_by, last_review_at, revoked_at }`.
+- **Écrans** : inventaire du matériel ; registre des accès avec date de dernière revue.
+- **Source** : S8 (saisie manuelle) ; `AccessGrant` rapproché de S1 (membres GitHub) quand c'est possible.
+- **Actions** : matériel N2 (créer, éditer) ; accès N3 (enregistrer une révocation, Owner). Le registre **documente** les accès, il ne les crée pas dans les systèmes tiers.
+- **Permissions** : Administrator (matériel), Owner (accès).
+- **Données sensibles** : aucune immatriculation ni VIN par défaut ; aucun secret, aucun mot de passe, aucune clé.
+- **Règle** : `model` et `firmware` sont saisis tels que lus sur le matériel. Aucune compatibilité n'est déduite de ce registre (CLAUDE.md §3.3).
+
+### 5.8 Conservation des données du CRM (proposition)
+
+| Donnée | Durée proposée | Déclencheur |
+|---|---|---|
+| Partenaire actif | durée de la relation | — |
+| Partenaire « Clos » | 3 ans puis suppression ou anonymisation | passage à `closed` |
+| Bêta-testeur sans consentement valide | suppression sous 30 jours | retrait ou refus |
+| Événements partenaire | même durée que le partenaire | — |
+| Matériel de test | durée de détention + 1 an | sortie d'inventaire |
+| Registre des accès | 3 ans après révocation | `revoked_at` |
+
+Durées à valider par les humains au regard du RGPD. Export et suppression sur demande pour toute personne enregistrée.
 
 ## 6. Espace Opérations
 
@@ -137,6 +201,8 @@ Interdits par défaut (dossier d'architecture §7) : terminal dans le navigateur
 
 Chaque action N2/N3 vérifie identité, rôle, périmètre, autorisation, conditions de sécurité, confirmation humaine ; elle est journalisée (admin, action, ressource, date, résultat, corrélation, motif). Jamais de secret dans les logs.
 
+La matrice détaillée actions × rôles fait référence dans [ADMIN_PERMISSIONS](../security/ADMIN_PERMISSIONS.md). En cas d'écart, ADMIN_PERMISSIONS prime.
+
 ## 8. API d'administration (squelette pour `packages/api-contracts/admin/`)
 
 | Méthode | Route | Rôle min. | Source |
@@ -156,6 +222,8 @@ Chaque action N2/N3 vérifie identité, rôle, périmètre, autorisation, condit
 
 Chaque réponse porte `source`, `fetched_at`, `freshness` (`live|stale|unknown`) et, si démonstration, `demo: true`.
 
+Contrat formel : [`packages/api-contracts/admin/openapi.yaml`](../../packages/api-contracts/admin/openapi.yaml). Il ajoute `GET /admin/v1/dev/pull-requests` (Development Studio) et précise les en-têtes `X-Kaiviro-Confirm`, `X-Kaiviro-Reason` et `Idempotency-Key` pour les actions N2/N3.
+
 ## 9. Ordre de livraison
 
 1. **CC-M1** — coque, navigation, design system, CRM complet (Tableau, Planning, Équipe, Partenaires, Décisions) sur S1, S2, S3 et S8 (partenaires) ; Opérations en 2D avec états « inconnu » et tableau des sources.
@@ -170,4 +238,6 @@ Chaque réponse porte `source`, `fetched_at`, `freshness` (`live|stale|unknown`)
 - Étapes du pipeline partenaires.
 - GitHub Issues + Project comme source des livrables : à confirmer ensemble (convention de labels).
 - Hébergement du Command Center (Vercel derrière accès privé, ou servi depuis la Pi via VPN) : ADR-0014.
-- Choix Tailscale / WireGuard : NETWORK_AND_VPN.
+- Choix Tailscale / WireGuard : [NETWORK_AND_VPN](../operations/NETWORK_AND_VPN.md).
+- Accès serveur au vault Drive (S3) : compte de service ou OAuth, décision humaine requise.
+- Thème par défaut : Ivoire (validé) ou Nuit (proposé).
