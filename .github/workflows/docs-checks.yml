@@ -38,7 +38,7 @@ jobs:
       - uses: lycheeverse/lychee-action@e7477775783ea5526144ba13e8db5eec57747ce8 # v2.9.0
         with:
           # Hors ligne : liens relatifs uniquement, aucun appel réseau.
-          args: --offline --no-progress --include-fragments=false "**/*.md"
+          args: --offline --no-progress "**/*.md"
           fail: true
 
   yaml:
@@ -73,6 +73,10 @@ jobs:
     name: Scan de secrets
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    permissions:
+      contents: read
+      # gitleaks-action lit la liste des commits de la PR (GET /pulls/{n}/commits).
+      pull-requests: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
