@@ -94,7 +94,7 @@ services:
       GF_AUTH_ANONYMOUS_ENABLED: "false"
       GF_ANALYTICS_REPORTING_ENABLED: "false"
       GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
-      GF_SECURITY_ADMIN_USER: "${GRAFANA_ADMIN_USER:?GRAFANA_ADMIN_USER requis}"
+      GF_SECURITY_ADMIN_USER: "${GRAFANA_ADMIN_USER:-kaiviro-admin}"
       GF_SECURITY_ADMIN_PASSWORD__FILE: /run/secrets/grafana_admin_password
     secrets:
       - grafana_admin_password
@@ -141,7 +141,7 @@ services:
 secrets:
   grafana_admin_password:
     # Fichier local root:root 0400, hors Git. Chemin dans .env.
-    file: "${GRAFANA_ADMIN_PASSWORD_FILE:?GRAFANA_ADMIN_PASSWORD_FILE requis}"
+    file: "${GRAFANA_ADMIN_PASSWORD_FILE:-/opt/kaiviro/secrets/grafana_admin_password}"
 
 networks:
   kv_monitoring:
