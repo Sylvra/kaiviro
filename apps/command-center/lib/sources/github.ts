@@ -25,9 +25,13 @@ async function gh<T>(path: string, revalidate = 300): Promise<{ data: T; fetched
   try {
     const cache: RequestInit = revalidate === 0 ? { cache: "no-store" } : { next: { revalidate } };
     const res = await fetch(`${API}${path}`, { headers: headers(), ...cache });
-    if (!res.ok) return null;
+    if (!res.ok) {
+      console.warn(`[S1] GitHub ${res.status} sur ${path.split("?")[0]}`);
+      return null;
+    }
     return { data: (await res.json()) as T, fetchedAt: new Date().toISOString() };
-  } catch {
+  } catch (e) {
+    console.warn(`[S1] GitHub injoignable sur ${path.split("?")[0]} : ${(e as { cause?: { code?: string } }).cause?.code ?? (e as Error).message}`);
     return null;
   }
 }

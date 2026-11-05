@@ -16,8 +16,10 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if (!req.headers.get("content-type")?.startsWith("application/json")) {
     return problem(415, "Type de contenu refusé", "Attendu : application/json");
   }
+  // req.nextUrl peut réécrire 127.0.0.1 en localhost : on compare l'hôte de l'origine à l'en-tête Host.
   const origin = req.headers.get("origin");
-  if (origin && origin !== req.nextUrl.origin) return problem(403, "Origine refusée");
+  const sameHost = (() => { try { return new URL(origin ?? "").host === req.headers.get("host"); } catch { return false; } })();
+  if (origin && !sameHost) return problem(403, "Origine refusée");
 
   const { id } = await params;
   const parsed = Body.safeParse(await req.json().catch(() => null));
