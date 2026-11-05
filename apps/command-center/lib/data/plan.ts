@@ -97,10 +97,11 @@ export const PEOPLE = [
     branch: "feature/m0-admin-operations", scope: ["Command Center", "CRM", "Vue 3D", "Raspberry Pi", "VPN", "Accès", "Sauvegardes", "GitHub"] },
   { id: "b", initials: "B", name: "Collègue", role: "Stack applicative", mission: "B" as const, kind: "human" as const,
     branch: "feature/m0-app-stack", scope: ["Android", "OBD", "Moteur déterministe", "Backend", "Supabase", "IA", "Connaissances"] },
-  { id: "cca", initials: "A", name: "Claude Code A", role: "Agent · worktree kaiviro-claude-a", mission: "A" as const, kind: "agent" as const,
-    branch: "prompts/MISSION_A.md", scope: ["Rédige, ne déploie pas", "Pas d’accès à la Pi", "PR vers develop"] },
-  { id: "ccb", initials: "B", name: "Claude Code B", role: "Agent · worktree kaiviro-claude-b", mission: "B" as const, kind: "agent" as const,
-    branch: "prompts/MISSION_B.md", scope: ["Aucun fait automobile inventé", "PR vers develop"] },
+  // Les agents travaillent sur la branche de leur mission ; leur état est déduit de l'activité de cette branche.
+  { id: "cca", initials: "A", name: "Claude Code A", role: "Agent · worktree kaiviro-claude-a · prompts/MISSION_A.md", mission: "A" as const, kind: "agent" as const,
+    branch: "feature/m0-admin-operations", scope: ["Rédige, ne déploie pas", "Pas d’accès à la Pi", "PR vers develop"] },
+  { id: "ccb", initials: "B", name: "Claude Code B", role: "Agent · worktree kaiviro-claude-b · prompts/MISSION_B.md", mission: "B" as const, kind: "agent" as const,
+    branch: "feature/m0-app-stack", scope: ["Aucun fait automobile inventé", "PR vers develop"] },
 ];
 
 /** Durée du plan M0 en jours ouvrés. Le jour courant est calculé par getPlanDay() (lib/queries.ts). */

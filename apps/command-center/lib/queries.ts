@@ -1,7 +1,7 @@
 import "server-only";
 import { ADRS, DECISIONS, DELIVERABLES, PLAN_DAY, PLAN_SOURCE, type Adr, type AdrStatus, type Decision, type Deliverable, type Owner, type Status } from "./data/plan";
 import { DEMO_PARTNERS, type Partner } from "./data/demo";
-import { getRepo, listAdrFiles, listBranches, listIssues, listOpenPulls, readRaw, type GhComment, type GhIssue } from "./sources/github";
+import { compareBranch, getBranchHead, getRepo, listAdrFiles, listBranches, listIssues, listOpenPulls, readRaw, type GhComment, type GhIssue } from "./sources/github";
 import { fromDemo, fromStatic, type Sourced } from "./sources/types";
 import { planDayAt, todayInParis, type PlanDay } from "./plan-day";
 
@@ -175,6 +175,43 @@ export async function getBranches(): Promise<Sourced<{ name: string; role: strin
     return { value, source: "S1 · GitHub branches", fetchedAt: r.fetchedAt, freshness: "live", demo: false };
   }
   return fromStatic(KNOWN_BRANCHES.map((b) => ({ ...b, protected: null })), `${PLAN_SOURCE} §2`);
+}
+
+export interface BranchActivity {
+  branch: string;
+  exists: boolean;
+  /** commits d'avance sur develop ; null si inconnu */
+  aheadBy: number | null;
+  lastCommit: { message: string; date: string; url: string } | null;
+  pull: { number: number; url: string; draft: boolean } | null;
+}
+
+/** Activité réelle des branches de mission (S1) : existence, dernier commit, avance sur develop, PR ouverte. */
+export async function getBranchActivity(branches: string[]): Promise<Sourced<Record<string, BranchActivity>>> {
+  const [list, pulls] = await Promise.all([listBranches(), listOpenPulls()]);
+  if (!list) return { value: null, source: "S1 · GitHub branches et commits", fetchedAt: null, freshness: "unknown", demo: false };
+  const names = new Set(list.data.map((b) => b.name));
+  const entries = await Promise.all([...new Set(branches)].map(async (branch): Promise<[string, BranchActivity]> => {
+    const pr = pulls?.data.find((p) => p.head.ref === branch);
+    const pull = pr ? { number: pr.number, url: pr.html_url, draft: pr.draft } : null;
+    if (!names.has(branch)) return [branch, { branch, exists: false, aheadBy: null, lastCommit: null, pull }];
+    const [head, cmp] = await Promise.all([getBranchHead(branch), compareBranch("develop", branch)]);
+    const lastCommit = head ? { message: head.data.commit.message.split("\n")[0] ?? "", date: head.data.commit.author?.date ?? "", url: head.data.html_url } : null;
+    return [branch, { branch, exists: true, aheadBy: cmp?.data.ahead_by ?? null, lastCommit, pull }];
+  }));
+  return { value: Object.fromEntries(entries), source: "S1 · GitHub branches et commits", fetchedAt: list.fetchedAt, freshness: "live", demo: false };
+}
+
+export type AgentState = "unknown" | "not-started" | "empty" | "working" | "pr-open";
+
+/** État d'un agent déduit de sa branche : aucune présence n'est inventée. */
+export function agentState(a: BranchActivity | undefined | null): AgentState {
+  if (!a) return "unknown";
+  if (!a.exists) return a.pull ? "pr-open" : "not-started";
+  if (a.pull) return "pr-open";
+  if (a.aheadBy === 0) return "empty";
+  if (a.aheadBy === null) return "unknown";
+  return "working";
 }
 
 export async function getOpenPullCount(): Promise<Sourced<number>> {

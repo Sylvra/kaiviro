@@ -117,6 +117,17 @@ export async function listBranches() {
   return gh<GhBranch[]>(`/repos/${process.env.GITHUB_REPO}/branches?per_page=100`);
 }
 
+export interface GhCommit { sha: string; html_url: string; commit: { message: string; author: { name: string; date: string } | null } }
+/** Dernier commit d'une branche (null si la branche n'existe pas ou si GitHub ne répond pas). */
+export async function getBranchHead(branch: string) {
+  return gh<GhCommit>(`/repos/${process.env.GITHUB_REPO}/commits/${encodeURIComponent(branch)}`, 120);
+}
+
+/** Commits d'avance d'une branche sur sa base. */
+export async function compareBranch(base: string, branch: string) {
+  return gh<{ ahead_by: number; behind_by: number }>(`/repos/${process.env.GITHUB_REPO}/compare/${encodeURIComponent(base)}...${encodeURIComponent(branch)}`, 120);
+}
+
 export interface GhPull { number: number; title: string; html_url: string; head: { ref: string }; draft: boolean }
 export async function listOpenPulls() {
   return gh<GhPull[]>(`/repos/${process.env.GITHUB_REPO}/pulls?state=open&per_page=50`);

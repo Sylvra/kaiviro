@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { getAdrs, getDeliverables, getPartners, issueToDeliverable, parseAdrStatus, splitDecisionBody, statusPatch, newDeliverableIssue, decisionComment, deliverableNotes, toComment, editPatch, withPath } from "@/lib/queries";
+import { getAdrs, getDeliverables, getPartners, issueToDeliverable, parseAdrStatus, splitDecisionBody, statusPatch, newDeliverableIssue, decisionComment, deliverableNotes, toComment, editPatch, withPath, agentState } from "@/lib/queries";
 import { DELIVERABLES } from "@/lib/data/plan";
 
 afterEach(() => vi.unstubAllEnvs());
@@ -77,6 +77,15 @@ describe("conversion GitHub", () => {
     expect(editPatch(issue, { title: "VPN" })).toEqual({ labels: issue.labels }); // titre identique : rien à écrire
     expect(withPath("Source : plan.", "docs/c.md")).toBe("Chemin : `docs/c.md`\n\nSource : plan.");
     expect(withPath("Chemin : `x`\n\nSource : plan.", "")).toBe("Source : plan.");
+  });
+  it("déduit l'état d'un agent de sa branche, sans inventer", () => {
+    const base = { branch: "feature/x", exists: true, aheadBy: 3, lastCommit: null, pull: null };
+    expect(agentState(null)).toBe("unknown");
+    expect(agentState({ ...base, exists: false, aheadBy: null })).toBe("not-started");
+    expect(agentState({ ...base, aheadBy: 0 })).toBe("empty");
+    expect(agentState(base)).toBe("working");
+    expect(agentState({ ...base, pull: { number: 2, url: "", draft: false } })).toBe("pr-open");
+    expect(agentState({ ...base, aheadBy: null })).toBe("unknown");
   });
   it("lit le statut d'une ADR", () => {
     expect(parseAdrStatus("# ADR-0001 — Monorepo\nStatut : ACCEPTED\nDate : 2026-11-10")).toBe("ACCEPTED");
