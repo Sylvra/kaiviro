@@ -19,10 +19,12 @@ function headers(): HeadersInit {
   };
 }
 
+/** revalidate = 0 : pas de cache, pour les données modifiables depuis le Command Center. */
 async function gh<T>(path: string, revalidate = 300): Promise<{ data: T; fetchedAt: string } | null> {
   if (!githubConfigured()) return null;
   try {
-    const res = await fetch(`${API}${path}`, { headers: headers(), next: { revalidate } });
+    const cache: RequestInit = revalidate === 0 ? { cache: "no-store" } : { next: { revalidate } };
+    const res = await fetch(`${API}${path}`, { headers: headers(), ...cache });
     if (!res.ok) return null;
     return { data: (await res.json()) as T, fetchedAt: new Date().toISOString() };
   } catch {
@@ -48,9 +50,32 @@ export interface GhIssue {
 }
 
 export async function listIssues(label: string) {
-  const r = await gh<GhIssue[]>(`/repos/${process.env.GITHUB_REPO}/issues?state=all&per_page=100&labels=${encodeURIComponent(label)}`);
+  const r = await gh<GhIssue[]>(`/repos/${process.env.GITHUB_REPO}/issues?state=all&per_page=100&labels=${encodeURIComponent(label)}`, 0);
   if (!r) return null;
   return { issues: r.data.filter((i) => !i.pull_request), fetchedAt: r.fetchedAt };
+}
+
+export async function getIssue(n: number) {
+  return gh<GhIssue>(`/repos/${process.env.GITHUB_REPO}/issues/${n}`, 0);
+}
+
+export type WriteResult = { ok: true; issue: GhIssue } | { ok: false; status: number };
+
+/** Niveau 2 (ADR-0012) : modifie les labels et l'état d'une issue. Exige un jeton avec Issues: write. */
+export async function updateIssue(n: number, patch: { labels: string[]; state: "open" | "closed" }): Promise<WriteResult> {
+  if (!githubConfigured()) return { ok: false, status: 503 };
+  try {
+    const res = await fetch(`${API}/repos/${process.env.GITHUB_REPO}/issues/${n}`, {
+      method: "PATCH",
+      headers: { ...headers(), "Content-Type": "application/json" },
+      body: JSON.stringify(patch),
+      cache: "no-store",
+    });
+    if (!res.ok) return { ok: false, status: res.status };
+    return { ok: true, issue: (await res.json()) as GhIssue };
+  } catch {
+    return { ok: false, status: 502 };
+  }
 }
 
 export interface GhBranch { name: string; protected: boolean }

@@ -12,6 +12,29 @@ const label = (i: GhIssue, prefix: string) => i.labels.map((l) => l.name).find((
 
 const OWNER_FROM: Record<string, Owner> = { a: "A", b: "B", commun: "C", humains: "H" };
 const STATUS_FROM: Record<string, Status> = { todo: 0, doing: 1, review: 2, done: 3 };
+export const STATUS_TO = ["todo", "doing", "review", "done"] as const;
+
+/** Nouveaux labels et état d'une issue livrable pour un statut donné : un seul label status:*, fermée si Terminé. */
+export function statusPatch(labels: string[], status: Status): { labels: string[]; state: "open" | "closed" } {
+  return {
+    labels: [...labels.filter((n) => !n.startsWith("status:")), `status:${STATUS_TO[status]}`],
+    state: status === 3 ? "closed" : "open",
+  };
+}
+
+/* Corps d'une issue livrable : ligne « Chemin : `docs/...` ».
+ * Corps d'une issue décision : résumé, contexte, puis une section « ## Options » en liste. */
+const bodyPath = (body: string | null) => body?.match(/^Chemin\s*:\s*`?([^`\n]+)`?/m)?.[1]?.trim();
+
+export function splitDecisionBody(body: string | null): { summary: string; context: string; options: string[] } {
+  const [main = "", opts = ""] = (body ?? "").split(/^##\s*Options\s*$/m);
+  const paragraphs = main.split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean);
+  return {
+    summary: (paragraphs[0] ?? "").slice(0, 140),
+    context: paragraphs.slice(1).join("\n\n") || (paragraphs[0] ?? ""),
+    options: opts.split("\n").map((l) => l.match(/^\s*[-*]\s+(.+)$/)?.[1]?.trim()).filter((o): o is string => Boolean(o)),
+  };
+}
 
 export function issueToDeliverable(i: GhIssue): Deliverable {
   const days = (label(i, "jours:") ?? "").split("-").map((n) => parseInt(n, 10)).filter((n) => !Number.isNaN(n));
@@ -20,7 +43,7 @@ export function issueToDeliverable(i: GhIssue): Deliverable {
     id: `gh-${i.number}`,
     owner: OWNER_FROM[label(i, "mission:") ?? "commun"] ?? "C",
     title: i.title,
-    path: `#${i.number}`,
+    path: bodyPath(i.body) ?? `#${i.number}`,
     days: [days[0] ?? 1, days[1] ?? days[0] ?? 1],
     kind: label(i, "type:") ?? "Tâche",
     status: status as Status,
@@ -42,8 +65,7 @@ export async function getDecisions(): Promise<Sourced<Decision[]>> {
     const value = r.issues.map<Decision>((i) => ({
       key: `gh-${i.number}`, title: i.title, ref: label(i, "ref:") ?? `#${i.number}`,
       owner: OWNER_FROM[label(i, "owner:") ?? "humains"] ?? "H",
-      summary: (i.body ?? "").split("\n").find((l) => l.trim().length > 0)?.slice(0, 140) ?? "",
-      context: i.body ?? "", options: [], resolved: i.state === "closed", url: i.html_url,
+      ...splitDecisionBody(i.body), resolved: i.state === "closed", url: i.html_url,
     }));
     return { value, source: "S1 · GitHub issues « decision »", fetchedAt: r.fetchedAt, freshness: "live", demo: false };
   }

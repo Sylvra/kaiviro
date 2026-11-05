@@ -54,10 +54,13 @@ Aucun template acheté n'est utilisé ni présent. Le style s'inspire du niveau 
 - Livrable : label `livrable` + `mission:a|b|commun` + `status:todo|doing|review|done` + `type:<x>` + `jours:3-4`. Issue fermée = Terminé.
 - Décision : label `decision` + `owner:a|b|humains` + `ref:ADR-00xx`. Issue fermée = tranchée, l'ADR est mise à jour dans la même PR.
 - Dès qu'au moins une issue `livrable` existe et que le jeton est fourni, le Tableau passe en « S1 · GitHub issues » et n'utilise plus le plan.
+- Corps d'une issue livrable : ligne `Chemin : \`docs/...\``. Corps d'une issue décision : résumé, contexte, puis `## Options` en liste.
+- **Appliquée le 2026-11-05** (choix de Johan) : labels créés, issues #3 à #22 (20 livrables, statuts réels) et #23 à #28 (6 décisions ; #27 « Protection des branches » close : hook `pre-push` local, pas de GitHub Pro).
+- **Écriture du statut activée** (niveau 2) : `PATCH /api/admin/v1/deliverables/gh-{n}` remplace le label `status:*` et ferme l'issue en Terminé. Sans authentification avant CC-M3 (ADR-0012) : serveur lié à 127.0.0.1, JSON obligatoire, origine identique exigée. Tableau, Planning et Décisions sont rendus à chaque requête.
 
 ## 6. Ce que Johan doit fournir
 
-1. Un jeton GitHub *fine-grained*, dépôt `kaiviro` uniquement, permissions **Contents: read, Issues: read, Pull requests: read, Metadata: read**, dans `apps/command-center/.env.local` (`GITHUB_TOKEN=…`). Jamais dans le chat ni dans Git.
+1. Un jeton GitHub *fine-grained*, dépôt `kaiviro` uniquement, permissions **Contents: read, Issues: read and write, Pull requests: read, Metadata: read**, dans `apps/command-center/.env.local` (`GITHUB_TOKEN=…`). Jamais dans le chat ni dans Git. Sans le droit d'écriture, le tableau reste lisible et chaque déplacement est annulé avec un message.
 2. Plus tard : accès Drive (dossier `VAULT`, lecture), Supabase (schéma `admin`), URL VPN de la Pi (CC-M2).
 
 ## 7. Contrôles exécutés

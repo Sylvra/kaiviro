@@ -3,6 +3,7 @@ import { SourceNote } from "@/components/ui";
 import { getDecisions } from "@/lib/queries";
 
 export const metadata = { title: "Décisions" };
+export const dynamic = "force-dynamic";
 
 export default async function Page() {
   const d = await getDecisions();

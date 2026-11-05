@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { getAdrs, getDeliverables, getPartners, issueToDeliverable, parseAdrStatus } from "@/lib/queries";
+import { getAdrs, getDeliverables, getPartners, issueToDeliverable, parseAdrStatus, splitDecisionBody, statusPatch } from "@/lib/queries";
 import { DELIVERABLES } from "@/lib/data/plan";
 
 afterEach(() => vi.unstubAllEnvs());
@@ -36,6 +36,19 @@ describe("conversion GitHub", () => {
   it("une issue fermée est terminée", () => {
     const d = issueToDeliverable({ number: 1, title: "x", state: "closed", html_url: "", body: null, labels: [{ name: "status:todo" }], assignees: [], milestone: null });
     expect(d.status).toBe(3);
+  });
+  it("lit le chemin dans le corps de l'issue", () => {
+    const d = issueToDeliverable({ number: 9, title: "x", state: "open", html_url: "", body: "Chemin : `docs/architecture/ADMIN_ARCHITECTURE.md`\n\nSource : plan", labels: [], assignees: [], milestone: null });
+    expect(d.path).toBe("docs/architecture/ADMIN_ARCHITECTURE.md");
+  });
+  it("sépare résumé, contexte et options d'une décision", () => {
+    const s = splitDecisionBody("Quels modules ?\n\nLe CRM est réservé aux admins.\n\n## Options\n- Partenaires\n- Pilotage\n");
+    expect(s).toEqual({ summary: "Quels modules ?", context: "Le CRM est réservé aux admins.", options: ["Partenaires", "Pilotage"] });
+  });
+  it("change de statut : un seul label status:*, fermée si Terminé", () => {
+    expect(statusPatch(["livrable", "mission:a", "status:todo"], 2)).toEqual({ labels: ["livrable", "mission:a", "status:review"], state: "open" });
+    expect(statusPatch(["livrable", "status:review"], 3)).toEqual({ labels: ["livrable", "status:done"], state: "closed" });
+    expect(statusPatch(["livrable", "status:done"], 0).state).toBe("open");
   });
   it("lit le statut d'une ADR", () => {
     expect(parseAdrStatus("# ADR-0001 — Monorepo\nStatut : ACCEPTED\nDate : 2026-11-10")).toBe("ACCEPTED");
