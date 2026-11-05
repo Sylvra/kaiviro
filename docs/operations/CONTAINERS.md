@@ -65,7 +65,7 @@ Licences à vérifier avant installation (CLAUDE.md §3.7) : Uptime Kuma (MIT), 
 4. Vérifier avec `check-host.sh` et le tableau des sources.
 5. Retour arrière : remettre l'ancien tag et digest, `up -d`.
 
-Dependabot ne suit pas les fichiers Compose de façon fiable : revue manuelle mensuelle proposée.
+Support des fichiers Compose par Dependabot : à vérifier avant activation. En attendant, revue manuelle mensuelle.
 
 ## 6. Interdits
 
