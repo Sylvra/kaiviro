@@ -1,0 +1,13 @@
+# KAIVIRO — règles markdownlint (mission A, 2026-11-05).
+config:
+  default: true
+  MD013: false          # longueur de ligne : tableaux et phrases longues acceptés
+  MD024:
+    siblings_only: true # titres identiques permis dans des sections différentes
+  MD033: false          # HTML ponctuel autorisé (<br/> dans Mermaid)
+  MD041: false          # premier contenu = en-tête YAML, pas un titre
+  MD060: false          # alignement des tableaux non imposé
+ignores:
+  - "node_modules/**"
+  - "apps/command-center/vendor/**"
+  - ".claude/**/references/**"

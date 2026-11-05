@@ -1,0 +1,35 @@
+name: Livrable / tâche
+description: Un livrable suivi dans le CRM (Tableau).
+title: "[tâche] "
+labels: ["type:task"]
+body:
+  - type: dropdown
+    id: mission
+    attributes:
+      label: Mission
+      options: ["mission:a", "mission:b", "mission:commun"]
+    validations:
+      required: true
+  - type: input
+    id: path
+    attributes:
+      label: Chemin dans le dépôt
+      placeholder: docs/operations/…
+  - type: textarea
+    id: goal
+    attributes:
+      label: Objectif et critère de fin
+    validations:
+      required: true
+  - type: input
+    id: due
+    attributes:
+      label: Échéance
+      placeholder: AAAA-MM-JJ
+  - type: checkboxes
+    id: rules
+    attributes:
+      label: Règles
+      options:
+        - label: Aucun secret ni donnée personnelle dans cette issue
+          required: true
