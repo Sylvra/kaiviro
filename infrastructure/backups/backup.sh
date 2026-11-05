@@ -53,9 +53,15 @@ if ! out="$(restic backup --tag "kaiviro,${SCOPE}" --json "${PATHS[@]}" 2>&1)"; 
 fi
 SNAP="$(printf '%s\n' "$out" | grep '"message_type":"summary"' | sed -n 's/.*"snapshot_id":"\([0-9a-f]*\)".*/\1/p' | tail -n1)"
 
-restic forget --tag "kaiviro,${SCOPE}" \
+# Rétention : un échec ici ne doit pas laisser l'ancien état « succeeded » affiché.
+# La sauvegarde est faite mais la rétention a échoué : état « partial », sortie non nulle.
+if ! restic forget --tag "kaiviro,${SCOPE}" \
   --keep-daily "${KEEP_DAILY:-7}" --keep-weekly "${KEEP_WEEKLY:-4}" --keep-monthly "${KEEP_MONTHLY:-6}" \
-  --prune >/dev/null
+  --prune >/dev/null 2>&1; then
+  write_state partial "${SNAP:-null}" "sauvegarde faite, rétention (restic forget --prune) en échec"
+  echo "PARTIEL ${RUN_ID} snapshot=${SNAP:-inconnu} : rétention en échec" >&2
+  exit 3
+fi
 
 write_state succeeded "${SNAP:-null}" null
 echo "OK ${RUN_ID} snapshot=${SNAP:-inconnu}"
