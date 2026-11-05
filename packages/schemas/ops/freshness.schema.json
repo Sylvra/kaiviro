@@ -1,6 +1,5 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://kaiviro.invalid/schemas/ops/freshness.schema.json",
   "title": "Freshness",
   "description": "Provenance et fraîcheur d'une donnée affichée par le Command Center. Une donnée inconnue n'est jamais présentée comme saine.",
   "type": "object",

@@ -25,5 +25,5 @@ Règles :
 - Toute date-heure est en UTC, ISO 8601.
 - Une valeur inconnue vaut `null` et s'accompagne de `freshness: unknown`.
 - Aucun champ ne contient de secret, de donnée personnelle d'utilisateur de l'app ou de contenu de conversation.
-- `$id` en domaine `.invalid` : aucun domaine n'est réservé (ADR-0013).
+- Pas de `$id` absolu : les références entre schémas sont des chemins relatifs aux fichiers (aucun domaine réservé, ADR-0013).
 - Changement incompatible = nouvelle version majeure du schéma et entrée dans le rapport de mission.

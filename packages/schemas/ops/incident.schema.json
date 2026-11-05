@@ -1,6 +1,5 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://kaiviro.invalid/schemas/ops/incident.schema.json",
   "title": "Incident",
   "description": "Incident d'exploitation. Cycle de vie et gravités : docs/operations/INCIDENT_MANAGEMENT.md.",
   "type": "object",

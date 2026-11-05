@@ -1,6 +1,5 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://kaiviro.invalid/schemas/ops/backup-run.schema.json",
   "title": "BackupRun",
   "description": "Fichier d'état écrit par infrastructure/backups/backup.sh et restore-test.sh (source S6). Aucun chemin de secret, aucun mot de passe.",
   "type": "object",

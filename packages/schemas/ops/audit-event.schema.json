@@ -1,6 +1,5 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://kaiviro.invalid/schemas/ops/audit-event.schema.json",
   "title": "AuditEvent",
   "description": "Entrée du journal d'audit, en ajout seul. Jamais de secret, jamais de contenu de conversation.",
   "type": "object",

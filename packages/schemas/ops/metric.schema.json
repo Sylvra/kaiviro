@@ -1,6 +1,5 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://kaiviro.invalid/schemas/ops/metric.schema.json",
   "title": "Metric",
   "description": "Valeur d'indicateur servie par l'API d'administration (résultat agrégé, pas une série brute Prometheus).",
   "type": "object",

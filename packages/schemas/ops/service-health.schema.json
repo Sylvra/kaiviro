@@ -1,6 +1,5 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://kaiviro.invalid/schemas/ops/service-health.schema.json",
   "title": "ServiceHealth",
   "description": "Santé d'un service et de ses dépendances. Réponse de /health/details et élément de /admin/v1/overview.",
   "type": "object",
