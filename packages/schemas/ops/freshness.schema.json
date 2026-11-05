@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kaiviro.invalid/schemas/ops/freshness.schema.json",
+  "title": "Freshness",
+  "description": "Provenance et fraîcheur d'une donnée affichée par le Command Center. Une donnée inconnue n'est jamais présentée comme saine.",
+  "type": "object",
+  "required": ["source", "fetched_at", "freshness", "demo"],
+  "additionalProperties": false,
+  "properties": {
+    "source": {
+      "description": "Identifiant de source, voir CRM_SPEC §4.",
+      "type": "string",
+      "enum": ["S1", "S2", "S3", "S4", "S5", "S6", "S7", "S8", "S9"]
+    },
+    "fetched_at": {
+      "description": "Dernière lecture réussie, UTC ISO 8601. null si jamais mesuré.",
+      "type": ["string", "null"],
+      "format": "date-time"
+    },
+    "freshness": {
+      "type": "string",
+      "enum": ["live", "stale", "unknown"]
+    },
+    "demo": {
+      "description": "true si la valeur provient d'un jeu de démonstration versionné.",
+      "type": "boolean"
+    },
+    "unknown_reason": {
+      "type": ["string", "null"],
+      "enum": ["never_measured", "source_disconnected", "source_error", "not_applicable", "not_collected", null]
+    }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "freshness": { "const": "unknown" } } },
+      "then": { "required": ["unknown_reason"], "properties": { "unknown_reason": { "type": "string" } } }
+    }
+  ]
+}

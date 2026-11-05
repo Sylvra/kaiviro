@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kaiviro.invalid/schemas/ops/audit-event.schema.json",
+  "title": "AuditEvent",
+  "description": "Entrée du journal d'audit, en ajout seul. Jamais de secret, jamais de contenu de conversation.",
+  "type": "object",
+  "required": ["id", "at", "actor", "action", "level", "resource", "outcome", "correlation_id"],
+  "additionalProperties": false,
+  "properties": {
+    "id": { "type": "string", "format": "uuid" },
+    "at": { "type": "string", "format": "date-time" },
+    "actor": {
+      "type": "object",
+      "required": ["type", "id"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "type": "string", "enum": ["admin", "system", "ci"] },
+        "id": { "type": "string", "maxLength": 64 },
+        "role": { "type": ["string", "null"], "enum": ["owner", "administrator", "developer", "viewer", null] }
+      }
+    },
+    "action": {
+      "description": "Identifiant d'action de la liste blanche, ex. partner.delete, container.restart, role.update.",
+      "type": "string",
+      "pattern": "^[a-z_]+\\.[a-z_]+$"
+    },
+    "level": { "type": "integer", "enum": [1, 2, 3] },
+    "resource": {
+      "type": "object",
+      "required": ["type", "id"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "type": "string", "maxLength": 64 },
+        "id": { "type": "string", "maxLength": 128 }
+      }
+    },
+    "outcome": { "type": "string", "enum": ["requested", "denied", "succeeded", "failed"] },
+    "reason": {
+      "description": "Motif saisi par l'admin. Obligatoire pour les niveaux 2 et 3.",
+      "type": ["string", "null"],
+      "maxLength": 500
+    },
+    "correlation_id": { "type": "string", "maxLength": 64 },
+    "source_ip_hash": {
+      "description": "Empreinte de l'adresse VPN source, pas l'adresse en clair.",
+      "type": ["string", "null"],
+      "maxLength": 128
+    }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "level": { "enum": [2, 3] } }, "required": ["level"] },
+      "then": { "required": ["reason"], "properties": { "reason": { "type": "string", "minLength": 3 } } }
+    }
+  ]
+}

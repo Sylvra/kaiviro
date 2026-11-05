@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kaiviro.invalid/schemas/ops/metric.schema.json",
+  "title": "Metric",
+  "description": "Valeur d'indicateur servie par l'API d'administration (résultat agrégé, pas une série brute Prometheus).",
+  "type": "object",
+  "required": ["name", "value", "unit", "provenance"],
+  "additionalProperties": false,
+  "properties": {
+    "name": {
+      "description": "Nom stable, ex. pi_cpu_usage_ratio, pi_temperature_celsius, kaiviro_sync_lag_seconds.",
+      "type": "string",
+      "pattern": "^[a-z_][a-z0-9_]{1,127}$"
+    },
+    "value": {
+      "description": "null si inconnu. Jamais 0 par défaut.",
+      "type": ["number", "null"]
+    },
+    "unit": {
+      "type": "string",
+      "enum": ["ratio", "percent", "seconds", "milliseconds", "bytes", "celsius", "count", "eur", "boolean"]
+    },
+    "labels": {
+      "description": "Labels à cardinalité bornée. Aucune donnée personnelle.",
+      "type": "object",
+      "additionalProperties": { "type": "string", "maxLength": 128 },
+      "maxProperties": 8
+    },
+    "window": {
+      "description": "Fenêtre d'agrégation ISO 8601, ex. PT5M.",
+      "type": ["string", "null"]
+    },
+    "provenance": { "$ref": "freshness.schema.json" }
+  }
+}

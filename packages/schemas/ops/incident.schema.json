@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kaiviro.invalid/schemas/ops/incident.schema.json",
+  "title": "Incident",
+  "description": "Incident d'exploitation. Cycle de vie et gravités : docs/operations/INCIDENT_MANAGEMENT.md.",
+  "type": "object",
+  "required": ["id", "title", "severity", "status", "service", "detected_at", "owner_admin_id"],
+  "additionalProperties": false,
+  "properties": {
+    "id": { "type": "string", "pattern": "^INC-[0-9]{4}-[0-9]{3,}$" },
+    "title": { "type": "string", "minLength": 3, "maxLength": 160 },
+    "severity": { "type": "string", "enum": ["SEV1", "SEV2", "SEV3", "SEV4"] },
+    "status": {
+      "type": "string",
+      "enum": ["detected", "acknowledged", "mitigating", "resolved", "closed"]
+    },
+    "service": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{1,62}$" },
+    "detected_at": { "type": "string", "format": "date-time" },
+    "detected_by": { "type": "string", "enum": ["alert", "admin", "user_report", "ci"] },
+    "acknowledged_at": { "type": ["string", "null"], "format": "date-time" },
+    "resolved_at": { "type": ["string", "null"], "format": "date-time" },
+    "closed_at": { "type": ["string", "null"], "format": "date-time" },
+    "owner_admin_id": { "type": "string", "format": "uuid" },
+    "summary": {
+      "description": "Résumé sans secret ni donnée personnelle.",
+      "type": ["string", "null"],
+      "maxLength": 4000
+    },
+    "actions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["at", "by_admin_id", "kind", "note"],
+        "additionalProperties": false,
+        "properties": {
+          "at": { "type": "string", "format": "date-time" },
+          "by_admin_id": { "type": "string", "format": "uuid" },
+          "kind": { "type": "string", "enum": ["note", "status_change", "action", "communication"] },
+          "note": { "type": "string", "maxLength": 2000 }
+        }
+      }
+    },
+    "postmortem_url": {
+      "description": "Lien relatif vers le post-mortem dans le dépôt, obligatoire pour SEV1 et SEV2 à la clôture.",
+      "type": ["string", "null"]
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": { "status": { "const": "closed" }, "severity": { "enum": ["SEV1", "SEV2"] } },
+        "required": ["status", "severity"]
+      },
+      "then": { "required": ["postmortem_url"], "properties": { "postmortem_url": { "type": "string", "minLength": 1 } } }
+    }
+  ]
+}

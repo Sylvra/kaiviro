@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kaiviro.invalid/schemas/ops/deployment.schema.json",
+  "title": "Deployment",
+  "description": "Événement de release ou version déployée (OBSERVABILITY_CONTRACT §5).",
+  "type": "object",
+  "required": ["component", "environment", "version", "commit", "released_at", "status"],
+  "additionalProperties": false,
+  "properties": {
+    "component": { "type": "string", "enum": ["backend", "android", "command-center", "monitoring"] },
+    "environment": { "type": "string", "enum": ["dev", "staging", "production"] },
+    "version": {
+      "description": "SemVer.",
+      "type": "string",
+      "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(-[0-9A-Za-z.-]+)?(\\+[0-9A-Za-z.-]+)?$"
+    },
+    "commit": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "released_at": { "type": "string", "format": "date-time" },
+    "released_by": { "type": ["string", "null"], "maxLength": 64 },
+    "status": { "type": "string", "enum": ["started", "succeeded", "failed", "rolled_back"] },
+    "source_ref": {
+      "description": "Référence GitHub (release, run de workflow), sans jeton.",
+      "type": ["string", "null"],
+      "maxLength": 256
+    }
+  }
+}

@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://kaiviro.invalid/schemas/ops/service-health.schema.json",
+  "title": "ServiceHealth",
+  "description": "Santé d'un service et de ses dépendances. Réponse de /health/details et élément de /admin/v1/overview.",
+  "type": "object",
+  "required": ["service", "status", "checked_at", "provenance"],
+  "additionalProperties": false,
+  "properties": {
+    "service": {
+      "description": "Identifiant stable du service (ex. backend, command-center, pi, vpn, uptime-kuma).",
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]{1,62}$"
+    },
+    "status": { "$ref": "#/$defs/status" },
+    "checked_at": { "type": ["string", "null"], "format": "date-time" },
+    "version": { "type": ["string", "null"] },
+    "dependencies": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "status", "checked_at"],
+        "additionalProperties": false,
+        "properties": {
+          "name": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{1,62}$" },
+          "status": { "$ref": "#/$defs/status" },
+          "checked_at": { "type": ["string", "null"], "format": "date-time" },
+          "latency_ms": { "type": ["number", "null"], "minimum": 0 }
+        }
+      }
+    },
+    "provenance": { "$ref": "freshness.schema.json" }
+  },
+  "$defs": {
+    "status": {
+      "description": "unknown = pas de mesure exploitable. Jamais remplacé par ok.",
+      "type": "string",
+      "enum": ["ok", "degraded", "down", "unknown"]
+    }
+  }
+}
