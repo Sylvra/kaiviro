@@ -22,6 +22,24 @@ export function statusPatch(labels: string[], status: Status): { labels: string[
   };
 }
 
+/** Issue GitHub d'un nouveau livrable, au format de la convention (statut À faire). */
+export function newDeliverableIssue(d: { title: string; mission: "commun" | "a" | "b"; kind: string; days: [number, number]; path?: string }) {
+  const lines = [d.path ? `Chemin : \`${d.path.replace(/`/g, "")}\`` : null, "Créé depuis le Command Center."].filter(Boolean);
+  return {
+    title: d.title,
+    body: lines.join("\n\n"),
+    labels: ["livrable", `mission:${d.mission}`, "status:todo", `type:${d.kind}`, `jours:${d.days[0]}-${d.days[1]}`],
+  };
+}
+
+/** Commentaire écrit sur l'issue d'une décision, ou null s'il n'y a rien à écrire. */
+export function decisionComment(action: "comment" | "resolve" | "reopen", option?: string, note?: string): string | null {
+  if (action === "comment") return note ? note : null;
+  if (action === "reopen") return note ? `Rouverte depuis le Command Center.\n\n${note}` : "Rouverte depuis le Command Center.";
+  const parts = [option ? `**Tranchée : ${option}**` : "**Tranchée.**", note, "L’ADR liée est à mettre à jour dans une PR."];
+  return parts.filter(Boolean).join("\n\n");
+}
+
 /* Corps d'une issue livrable : ligne « Chemin : `docs/...` ».
  * Corps d'une issue décision : résumé, contexte, puis une section « ## Options » en liste. */
 const bodyPath = (body: string | null) => body?.match(/^Chemin\s*:\s*`?([^`\n]+)`?/m)?.[1]?.trim();

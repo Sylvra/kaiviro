@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { getAdrs, getDeliverables, getPartners, issueToDeliverable, parseAdrStatus, splitDecisionBody, statusPatch } from "@/lib/queries";
+import { getAdrs, getDeliverables, getPartners, issueToDeliverable, parseAdrStatus, splitDecisionBody, statusPatch, newDeliverableIssue, decisionComment } from "@/lib/queries";
 import { DELIVERABLES } from "@/lib/data/plan";
 
 afterEach(() => vi.unstubAllEnvs());
@@ -49,6 +49,18 @@ describe("conversion GitHub", () => {
     expect(statusPatch(["livrable", "mission:a", "status:todo"], 2)).toEqual({ labels: ["livrable", "mission:a", "status:review"], state: "open" });
     expect(statusPatch(["livrable", "status:review"], 3)).toEqual({ labels: ["livrable", "status:done"], state: "closed" });
     expect(statusPatch(["livrable", "status:done"], 0).state).toBe("open");
+  });
+  it("construit l'issue d'un nouveau livrable selon la convention", () => {
+    expect(newDeliverableIssue({ title: "VPN", mission: "a", kind: "Infra", days: [7, 8], path: "docs/`x`.md" })).toEqual({
+      title: "VPN",
+      body: "Chemin : `docs/x.md`\n\nCréé depuis le Command Center.",
+      labels: ["livrable", "mission:a", "status:todo", "type:Infra", "jours:7-8"],
+    });
+  });
+  it("écrit le commentaire d'une décision tranchée", () => {
+    expect(decisionComment("resolve", "Tailscale", "Plus simple sur mobile")).toBe("**Tranchée : Tailscale**\n\nPlus simple sur mobile\n\nL’ADR liée est à mettre à jour dans une PR.");
+    expect(decisionComment("comment")).toBeNull();
+    expect(decisionComment("reopen")).toBe("Rouverte depuis le Command Center.");
   });
   it("lit le statut d'une ADR", () => {
     expect(parseAdrStatus("# ADR-0001 — Monorepo\nStatut : ACCEPTED\nDate : 2026-11-10")).toBe("ACCEPTED");

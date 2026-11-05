@@ -65,21 +65,41 @@ export async function getIssue(n: number) {
 
 export type WriteResult = { ok: true; issue: GhIssue } | { ok: false; status: number };
 
-/** Niveau 2 (ADR-0012) : modifie les labels et l'état d'une issue. Exige un jeton avec Issues: write. */
-export async function updateIssue(n: number, patch: { labels: string[]; state: "open" | "closed" }): Promise<WriteResult> {
+async function write<T>(method: "POST" | "PATCH", path: string, body: unknown): Promise<{ ok: true; data: T } | { ok: false; status: number }> {
   if (!githubConfigured()) return { ok: false, status: 503 };
   try {
-    const res = await fetch(`${API}/repos/${process.env.GITHUB_REPO}/issues/${n}`, {
-      method: "PATCH",
+    const res = await fetch(`${API}/repos/${process.env.GITHUB_REPO}${path}`, {
+      method,
       headers: { ...headers(), "Content-Type": "application/json" },
-      body: JSON.stringify(patch),
+      body: JSON.stringify(body),
       cache: "no-store",
     });
-    if (!res.ok) return { ok: false, status: res.status };
-    return { ok: true, issue: (await res.json()) as GhIssue };
-  } catch {
+    if (!res.ok) {
+      console.warn(`[S1] GitHub ${res.status} sur ${method} ${path}`);
+      return { ok: false, status: res.status };
+    }
+    return { ok: true, data: (await res.json()) as T };
+  } catch (e) {
+    console.warn(`[S1] GitHub injoignable sur ${method} ${path} : ${(e as { cause?: { code?: string } }).cause?.code ?? (e as Error).message}`);
     return { ok: false, status: 502 };
   }
+}
+
+const asIssue = (r: { ok: true; data: GhIssue } | { ok: false; status: number }): WriteResult =>
+  r.ok ? { ok: true, issue: r.data } : r;
+
+/** Niveau 2 (ADR-0012) : modifie les labels et/ou l'état d'une issue. Exige un jeton avec Issues: write. */
+export async function updateIssue(n: number, patch: { labels?: string[]; state?: "open" | "closed"; state_reason?: "completed" | "reopened" }): Promise<WriteResult> {
+  return asIssue(await write<GhIssue>("PATCH", `/issues/${n}`, patch));
+}
+
+export async function createIssue(issue: { title: string; body: string; labels: string[] }): Promise<WriteResult> {
+  return asIssue(await write<GhIssue>("POST", "/issues", issue));
+}
+
+export async function commentIssue(n: number, body: string) {
+  const r = await write<{ id: number }>("POST", `/issues/${n}/comments`, { body });
+  return r.ok ? { ok: true as const } : r;
 }
 
 export interface GhBranch { name: string; protected: boolean }

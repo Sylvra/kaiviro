@@ -1,5 +1,5 @@
-import { Plus } from "lucide-react";
 import { CrmTabs } from "@/components/CrmTabs";
+import { NewDeliverable } from "@/components/NewDeliverable";
 import { Avatar, Pill, SourceNote } from "@/components/ui";
 import { getDecisions, getDeliverables } from "@/lib/queries";
 import { PLAN_DAY } from "@/lib/data/plan";
@@ -39,9 +39,7 @@ export default async function CrmLayout({ children }: { children: React.ReactNod
               <span className="-ml-2"><Avatar initials="B" tone="lavender" size={34} title="Collègue — Mission B" /></span>
               <span className="-ml-2"><Avatar initials="+2" tone="dark" size={34} title="Deux instances Claude Code" /></span>
             </div>
-            <button type="button" className="inline-flex h-10 items-center gap-2 rounded-xl bg-accent px-4 text-[13px] font-semibold text-white shadow-[0_8px_18px_-10px_rgb(15_118_110/0.8)] transition hover:bg-accent-hover active:scale-[0.98]">
-              <Plus size={14} strokeWidth={2.4} aria-hidden /> Nouveau
-            </button>
+            <NewDeliverable live={deliv.freshness === "live"} />
           </div>
         </div>
         <div className="flex justify-end"><SourceNote s={deliv} /></div>
