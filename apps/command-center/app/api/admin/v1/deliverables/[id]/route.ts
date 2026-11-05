@@ -2,11 +2,27 @@ import type { NextRequest } from "next/server";
 import { z } from "zod";
 import { problem, sourced } from "@/lib/api/respond";
 import { guardWrite, writeRefused } from "@/lib/api/guard";
-import { issueToDeliverable, statusPatch } from "@/lib/queries";
-import { getIssue, updateIssue } from "@/lib/sources/github";
+import { deliverableNotes, issueToDeliverable, statusPatch, toComment } from "@/lib/queries";
+import { getIssue, listComments, updateIssue } from "@/lib/sources/github";
 import type { Status } from "@/lib/data/plan";
 
 const Body = z.object({ status: z.number().int().min(0).max(3) });
+
+/** Fiche d'un livrable : issue, notes et commentaires GitHub (lecture). */
+export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const m = /^gh-(\d+)$/.exec(id);
+  if (!m) return problem(404, "Livrable inconnu", "Seuls les livrables issus de GitHub ont une fiche.");
+  const n = Number(m[1]);
+  const [issue, comments] = await Promise.all([getIssue(n), listComments(n)]);
+  if (!issue || !issue.data.labels.some((l) => l.name === "livrable")) {
+    return problem(404, "Livrable inconnu", `L’issue #${n} n’existe pas, n’a pas le label « livrable » ou GitHub ne répond pas.`);
+  }
+  return sourced({
+    value: { deliverable: issueToDeliverable(issue.data), notes: deliverableNotes(issue.data.body), comments: (comments?.data ?? []).map(toComment), commentsKnown: comments !== null },
+    source: `S1 · GitHub issue #${n}`, fetchedAt: issue.fetchedAt, freshness: "live", demo: false,
+  });
+}
 
 /** Écriture du statut d'un livrable dans GitHub (niveau 2, CC-M1 règle 4). Garde : lib/api/guard.ts. */
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {

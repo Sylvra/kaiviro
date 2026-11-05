@@ -1,7 +1,7 @@
 import "server-only";
 import { ADRS, DECISIONS, DELIVERABLES, PLAN_DAY, PLAN_SOURCE, type Adr, type AdrStatus, type Decision, type Deliverable, type Owner, type Status } from "./data/plan";
 import { DEMO_PARTNERS, type Partner } from "./data/demo";
-import { getRepo, listAdrFiles, listBranches, listIssues, listOpenPulls, readRaw, type GhIssue } from "./sources/github";
+import { getRepo, listAdrFiles, listBranches, listIssues, listOpenPulls, readRaw, type GhComment, type GhIssue } from "./sources/github";
 import { fromDemo, fromStatic, type Sourced } from "./sources/types";
 import { planDayAt, todayInParis, type PlanDay } from "./plan-day";
 
@@ -31,6 +31,17 @@ export function newDeliverableIssue(d: { title: string; mission: "commun" | "a" 
     body: lines.join("\n\n"),
     labels: ["livrable", `mission:${d.mission}`, "status:todo", `type:${d.kind}`, `jours:${d.days[0]}-${d.days[1]}`],
   };
+}
+
+export interface IssueComment { id: number; author: string; body: string; at: string; url: string }
+
+export function toComment(c: GhComment): IssueComment {
+  return { id: c.id, author: c.user?.login ?? "inconnu", body: c.body ?? "", at: c.created_at, url: c.html_url };
+}
+
+/** Corps d'une issue livrable sans la ligne « Chemin : » déjà affichée à part. */
+export function deliverableNotes(body: string | null): string {
+  return (body ?? "").replace(/^Chemin\s*:.*$/m, "").replace(/\n{3,}/g, "\n\n").trim();
 }
 
 /** Commentaire écrit sur l'issue d'une décision, ou null s'il n'y a rien à écrire. */

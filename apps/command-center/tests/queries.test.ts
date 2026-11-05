@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { getAdrs, getDeliverables, getPartners, issueToDeliverable, parseAdrStatus, splitDecisionBody, statusPatch, newDeliverableIssue, decisionComment } from "@/lib/queries";
+import { getAdrs, getDeliverables, getPartners, issueToDeliverable, parseAdrStatus, splitDecisionBody, statusPatch, newDeliverableIssue, decisionComment, deliverableNotes, toComment } from "@/lib/queries";
 import { DELIVERABLES } from "@/lib/data/plan";
 
 afterEach(() => vi.unstubAllEnvs());
@@ -61,6 +61,11 @@ describe("conversion GitHub", () => {
     expect(decisionComment("resolve", "Tailscale", "Plus simple sur mobile")).toBe("**Tranchée : Tailscale**\n\nPlus simple sur mobile\n\nL’ADR liée est à mettre à jour dans une PR.");
     expect(decisionComment("comment")).toBeNull();
     expect(decisionComment("reopen")).toBe("Rouverte depuis le Command Center.");
+  });
+  it("fiche : notes sans la ligne Chemin, commentaire sans auteur connu", () => {
+    expect(deliverableNotes("Chemin : `docs/x.md`\n\nSource : plan.\n\nEn revue dans la PR #2.")).toBe("Source : plan.\n\nEn revue dans la PR #2.");
+    expect(deliverableNotes(null)).toBe("");
+    expect(toComment({ id: 1, body: null, user: null, created_at: "2026-11-05T10:00:00Z", html_url: "u" })).toEqual({ id: 1, author: "inconnu", body: "", at: "2026-11-05T10:00:00Z", url: "u" });
   });
   it("lit le statut d'une ADR", () => {
     expect(parseAdrStatus("# ADR-0001 — Monorepo\nStatut : ACCEPTED\nDate : 2026-11-10")).toBe("ACCEPTED");

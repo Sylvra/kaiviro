@@ -68,6 +68,11 @@ export async function getIssue(n: number) {
   return gh<GhIssue>(`/repos/${process.env.GITHUB_REPO}/issues/${n}`, 0);
 }
 
+export interface GhComment { id: number; body: string | null; user: { login: string } | null; created_at: string; html_url: string }
+export async function listComments(n: number) {
+  return gh<GhComment[]>(`/repos/${process.env.GITHUB_REPO}/issues/${n}/comments?per_page=100`, 0);
+}
+
 export type WriteResult = { ok: true; issue: GhIssue } | { ok: false; status: number };
 
 async function write<T>(method: "POST" | "PATCH", path: string, body: unknown): Promise<{ ok: true; data: T } | { ok: false; status: number }> {
