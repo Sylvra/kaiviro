@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 import { LayoutGroup, motion, useReducedMotion } from "motion/react";
 import { Download, Pencil, Plus, Trash2, X } from "lucide-react";
-import { CONSENTS, PARTNER_OWNERS, PARTNER_STAGES, PARTNER_TYPES, addDays, dueState, type Partner, type PartnerStage, type PartnerType } from "@/lib/partners";
+import { CONSENTS, EVENT_LABEL, INTERACTIONS, PARTNER_OWNERS, PARTNER_STAGES, PARTNER_TYPES, addDays, dueState, type Partner, type PartnerStage, type PartnerType } from "@/lib/partners";
 import type { Tone } from "@/lib/data/ops";
 import { Pill, cx } from "./ui";
 import { TONE } from "./tone";
@@ -78,6 +78,43 @@ function DuePill({ due, today }: { due?: string; today: string }) {
   if (s === "none") return null;
   const label = s === "overdue" ? `Relance en retard · ${shortDate(due!)}` : s === "today" ? "Relance aujourd’hui" : `Relance ${shortDate(due!)}`;
   return <Pill tone={s === "overdue" ? "coral" : s === "today" ? "amber" : "neutral"}>{label}</Pill>;
+}
+
+/** Historique de la fiche (plus récent en haut) et saisie d'une interaction. */
+function History({ p, today, busy, onAdd }: { p: Partner; today: string; busy: boolean; onAdd: (b: { kind: string; text: string; date: string }) => Promise<boolean> }) {
+  const events = [...(p.events ?? [])].reverse();
+  async function submit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const form = e.currentTarget;
+    const f = new FormData(form);
+    if (await onAdd({ kind: String(f.get("kind")), text: String(f.get("text")).trim(), date: String(f.get("date")) })) form.reset();
+  }
+  return (
+    <section aria-label="Historique" className="flex flex-col gap-2.5">
+      <h3 className="text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-3">Historique{events.length ? ` · ${events.length}` : ""}</h3>
+      <form onSubmit={submit} className="flex flex-col gap-2 rounded-xl border border-line-soft bg-white p-2.5">
+        <div className="grid grid-cols-2 gap-2">
+          <select name="kind" defaultValue="appel" aria-label="Type d’interaction" className={cx(field, "h-9")}>{Object.entries(INTERACTIONS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select>
+          <input name="date" type="date" defaultValue={today} max={today} aria-label="Date" className={cx(field, "h-9")} />
+        </div>
+        <textarea name="text" rows={2} required maxLength={1000} placeholder="Ce qui s’est dit, décidé, envoyé…" aria-label="Résumé de l’interaction" className="resize-y rounded-xl border border-[#e5dfd6] bg-surface-2 px-3 py-2 text-[13px] text-ink" />
+        <button type="submit" disabled={busy} className="h-8 self-end rounded-lg bg-ink px-3 text-xs font-semibold text-white disabled:opacity-50">Ajouter à l’historique</button>
+      </form>
+      {events.length === 0 ? <p className="text-xs text-ink-3">Aucun événement enregistré.</p> : (
+        <ol className="flex flex-col gap-2 border-l-2 border-line-soft pl-3">
+          {events.map((e) => (
+            <li key={e.id} className="flex flex-col gap-0.5">
+              <span className="flex items-center gap-2 text-xs">
+                <span className={cx("font-semibold", e.kind in INTERACTIONS ? "text-accent" : "text-ink-2")}>{EVENT_LABEL[e.kind]}</span>
+                <span className="text-ink-3">{new Date(e.at).toLocaleString("fr-FR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</span>
+              </span>
+              <span className="whitespace-pre-line text-[13px] text-ink-2">{e.text}</span>
+            </li>
+          ))}
+        </ol>
+      )}
+    </section>
+  );
 }
 
 const shortDate = (d: string) => new Date(`${d}T12:00:00Z`).toLocaleDateString("fr-FR", { day: "numeric", month: "short", timeZone: "UTC" });
@@ -245,6 +282,14 @@ export function Partners({ initial, available, today, focus }: { initial: Partne
                     {cur.note && <><dt className="text-ink-3">Note</dt><dd className="whitespace-pre-line">{cur.note}</dd></>}
                     <dt className="text-ink-3">Mis à jour</dt><dd className="text-ink-3">{new Date(cur.updatedAt).toLocaleString("fr-FR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</dd>
                   </dl>
+                  <History p={cur} today={today} busy={busy} onAdd={async (body) => {
+                    setBusy(true); setError(null);
+                    const r = await call(`${API}/${cur.id}/events`, "POST", body);
+                    setBusy(false);
+                    if (!r.ok) { setError(r.error); return false; }
+                    replace(r.data as Partner);
+                    return true;
+                  }} />
                   {mode === "delete" ? (
                     <form onSubmit={remove} className="flex flex-col gap-2 rounded-xl border border-[#f6d2c1] bg-coral-bg p-3">
                       <label className="flex flex-col gap-1.5 text-xs font-semibold text-coral-ink">Suppression définitive. Retape <span className="font-mono">{cur.ref}</span> pour confirmer.

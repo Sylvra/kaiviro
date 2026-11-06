@@ -2,7 +2,7 @@ import "server-only";
 import { randomUUID } from "node:crypto";
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { nextRef, type Partner, type PartnerInput, type PartnerPatch } from "@/lib/partners";
+import { PARTNER_STAGES, diffEvents, nextRef, type InteractionInput, type Partner, type PartnerEvent, type PartnerInput, type PartnerPatch } from "@/lib/partners";
 
 /**
  * Stockage local des partenaires : un fichier JSON sur le poste de l'administrateur, ignoré par Git.
@@ -41,22 +41,48 @@ function serial<T>(job: () => Promise<T>): Promise<T> {
   return run;
 }
 
+const event = (e: Omit<PartnerEvent, "id" | "at">, at: string): PartnerEvent => ({ id: randomUUID(), at, ...e });
+
 export function createPartner(input: PartnerInput): Promise<Partner> {
   return serial(async () => {
     const { partners } = await readPartners();
     const now = new Date().toISOString();
-    const p: Partner = { ...input, stage: input.stage as Partner["stage"], id: randomUUID(), ref: nextRef(partners, input.type), createdAt: now, updatedAt: now };
+    const p: Partner = {
+      ...input, stage: input.stage as Partner["stage"], id: randomUUID(), ref: nextRef(partners, input.type), createdAt: now, updatedAt: now,
+      events: [event({ kind: "created", text: `Fiche créée · ${PARTNER_STAGES[input.stage as Partner["stage"]]}` }, now)],
+    };
     await save([...partners, p]);
     return p;
   });
 }
 
+/** Modifie une fiche et ajoute à son historique ce qui a changé (étape, relance, noms de champs). */
 export function updatePartner(id: string, patch: PartnerPatch): Promise<Partner | null> {
   return serial(async () => {
     const { partners } = await readPartners();
     const i = partners.findIndex((p) => p.id === id);
     if (i < 0) return null;
-    const p = { ...partners[i]!, ...patch, updatedAt: new Date().toISOString() } as Partner;
+    const before = partners[i]!;
+    const now = new Date().toISOString();
+    const next = { ...before, ...patch, updatedAt: now } as Partner;
+    const added = diffEvents(before, next).map((e) => event(e, now));
+    const p: Partner = { ...next, events: [...(before.events ?? []), ...added] };
+    await save(partners.map((x, j) => (j === i ? p : x)));
+    return p;
+  });
+}
+
+/** Interaction saisie à la main (appel, e-mail, rendez-vous, note). Une date passée est datée à midi. */
+export function addInteraction(id: string, input: InteractionInput): Promise<Partner | null> {
+  return serial(async () => {
+    const { partners } = await readPartners();
+    const i = partners.findIndex((p) => p.id === id);
+    if (i < 0) return null;
+    const now = new Date().toISOString();
+    const at = input.date && input.date !== now.slice(0, 10) ? `${input.date}T12:00:00.000Z` : now;
+    const before = partners[i]!;
+    const events = [...(before.events ?? []), event({ kind: input.kind, text: input.text }, at)].sort((a, b) => a.at.localeCompare(b.at));
+    const p: Partner = { ...before, events, updatedAt: now };
     await save(partners.map((x, j) => (j === i ? p : x)));
     return p;
   });

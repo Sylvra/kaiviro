@@ -32,6 +32,40 @@ export interface Partner {
   note: string;
   createdAt: string;
   updatedAt: string;
+  /** historique, du plus ancien au plus récent (absent des fiches créées avant l'historique) */
+  events?: PartnerEvent[];
+}
+
+/** Événement d'historique (CRM_SPEC : admin.partner_events). Les modifications ne notent que les noms de champs. */
+export type EventKind = "created" | "stage" | "due" | "edit" | "appel" | "email" | "rdv" | "note";
+export interface PartnerEvent { id: string; at: string; kind: EventKind; text: string }
+
+export const INTERACTIONS = { appel: "Appel", email: "E-mail", rdv: "Rendez-vous", note: "Note" } as const;
+export const EVENT_LABEL: Record<EventKind, string> = { created: "Création", stage: "Étape", due: "Relance", edit: "Modification", ...INTERACTIONS };
+
+export const InteractionInput = z.object({
+  kind: z.enum(["appel", "email", "rdv", "note"]),
+  text: z.string().trim().min(1).max(1000),
+  /** jour de l'interaction, AAAA-MM-JJ ; par défaut maintenant */
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+});
+export type InteractionInput = z.infer<typeof InteractionInput>;
+
+const FIELD_LABEL: Partial<Record<keyof Partner, string>> = {
+  name: "nom", role: "rôle", contact: "contact", next: "prochaine action", owner: "responsable", gear: "matériel", consent: "consentement", note: "note",
+};
+
+const frDay = (d: string) => new Date(`${d}T12:00:00Z`).toLocaleDateString("fr-FR", { day: "numeric", month: "long", timeZone: "UTC" });
+
+/** Événements automatiques entre deux versions d'une fiche (sans id ni date : ajoutés par le stockage). */
+export function diffEvents(before: Partner, after: Partner): Omit<PartnerEvent, "id" | "at">[] {
+  const out: Omit<PartnerEvent, "id" | "at">[] = [];
+  if (before.stage !== after.stage) out.push({ kind: "stage", text: `${PARTNER_STAGES[before.stage]} → ${PARTNER_STAGES[after.stage]}` });
+  const b = before.due ?? "", a = after.due ?? "";
+  if (b !== a) out.push({ kind: "due", text: !a ? "Relance faite" : !b ? `Relance prévue le ${frDay(a)}` : `Relance reportée au ${frDay(a)}` });
+  const changed = (Object.keys(FIELD_LABEL) as (keyof Partner)[]).filter((k) => (before[k] ?? "") !== (after[k] ?? ""));
+  if (changed.length) out.push({ kind: "edit", text: `Champs modifiés : ${changed.map((k) => FIELD_LABEL[k]).join(", ")}` });
+  return out;
 }
 
 const text = (max: number) => z.string().trim().max(max);
