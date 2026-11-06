@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { Sidebar } from "@/components/Sidebar";
-import { getDecisions, getDeliverables, getPlanDay } from "@/lib/queries";
+import { getDecisions, getDeliverables, getPartners, getPlanDay } from "@/lib/queries";
 import { getSourceStatuses } from "@/lib/sources/registry";
 
 export const metadata: Metadata = {
@@ -15,8 +15,10 @@ export const revalidate = 60;
 const pct = (a: number, b: number) => (b === 0 ? 0 : Math.round((a / b) * 100));
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  const [deliv, decisions, sources, planDay] = await Promise.all([getDeliverables(), getDecisions(), getSourceStatuses(), getPlanDay()]);
+  const [deliv, decisions, sources, planDay, partners] = await Promise.all([getDeliverables(), getDecisions(), getSourceStatuses(), getPlanDay(), getPartners()]);
   const day = planDay.value;
+  const partnersTotal = partners.value?.length ?? 0;
+  const partnersActive = partners.value?.filter((p) => p.stage === 2).length ?? 0;
   const d = deliv.value ?? [];
   const of = (o: string) => d.filter((x) => x.owner === o);
   const done = (xs: typeof d) => xs.filter((x) => x.status === 3).length;
@@ -29,7 +31,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       { name: "Fondations M0", href: "/crm/tableau", pct: pct(done(d), d.length), meta: `${d.length} livrables · 2 missions`, dot: "bg-coral-dot" },
       { name: "Command Center", href: "/crm/equipe", pct: pct(done(of("A")), of("A").length), meta: "Mission A · Johan", dot: "bg-mint-dot" },
       { name: "App mobile", href: "/crm/planning", pct: pct(done(of("B")), of("B").length), meta: "Mission B · collègue", dot: "bg-lav-dot" },
-      { name: "Partenaires", href: "/crm/partenaires", pct: 0, meta: "fiches de démonstration", dot: "bg-amber-dot" },
+      { name: "Partenaires", href: "/crm/partenaires", pct: pct(partnersActive, partnersTotal), meta: partners.value === null ? "fichier local illisible" : `${partnersTotal} fiche${partnersTotal > 1 ? "s" : ""} · ${partnersActive} actif${partnersActive > 1 ? "s" : ""}`, dot: "bg-amber-dot" },
     ],
     sourcesConnected: sources.filter((s) => s.connected).length,
     sourcesTotal: sources.length,

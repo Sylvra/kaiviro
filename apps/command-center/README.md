@@ -40,7 +40,9 @@ app/
 components/                                             coque, kanban, Gantt, CRM, UI
 lib/
   sources/   types Sourced<T>, fraîcheur, registre S1–S9, connecteur GitHub
-  data/      plan M0 (référence), démonstration (partenaires), référentiel ops
+  data/      plan M0 (référence), référentiel ops
+  partners.ts  CRM Partenaires : types, validation, références
+  sources/partners-store.ts  stockage local apps/command-center/data/partners.json (ignoré par Git)
   queries.ts une fonction par donnée, live si la source répond, sinon référence ou démo signalée
 tests/
 ```

@@ -18,9 +18,10 @@ describe("sans GitHub configuré", () => {
     expect(a.value?.find((x) => x.id === "ADR-0013")?.status).toBe("OPEN");
     expect(a.value?.filter((x) => x.id !== "ADR-0013").every((x) => x.status === "NOT_WRITTEN")).toBe(true);
   });
-  it("les partenaires sont marqués démonstration", async () => {
+  it("sans fichier local, aucun partenaire et jamais de démonstration", async () => {
+    vi.stubEnv("PARTNERS_FILE", `${process.cwd()}/tests/.absent/partners.json`);
     const p = await getPartners();
-    expect(p.demo).toBe(true);
+    expect(p).toMatchObject({ value: [], demo: false, freshness: "live" });
   });
 });
 

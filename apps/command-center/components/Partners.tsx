@@ -1,24 +1,127 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { LayoutGroup, motion, useReducedMotion } from "motion/react";
-import { DEMO_PARTNERS, PARTNER_STAGES, PARTNER_TYPES, type Partner, type PartnerStage, type PartnerType } from "@/lib/data/demo";
+import { Download, Pencil, Plus, Trash2, X } from "lucide-react";
+import { CONSENTS, PARTNER_OWNERS, PARTNER_STAGES, PARTNER_TYPES, type Partner, type PartnerStage, type PartnerType } from "@/lib/partners";
 import type { Tone } from "@/lib/data/ops";
-import { DemoBadge, Pill, cx } from "./ui";
+import { Pill, cx } from "./ui";
 import { TONE } from "./tone";
+import { field } from "./NewDeliverable";
 
 const TYPE_TONE: Record<PartnerType, Tone> = { garage: "mint", obd: "sky", beta: "lavender" };
 const STAGE_TINT = ["bg-[#f6f3ee]", "bg-[#eef5fc]", "bg-[#e9f7f1]", "bg-[#fff6e3]"];
+const API = "/api/admin/v1/partners";
 
-export function Partners({ initial = DEMO_PARTNERS, demo }: { initial?: Partner[]; demo: boolean }) {
+async function call(url: string, method: string, body?: unknown): Promise<{ ok: true; data: unknown } | { ok: false; error: string }> {
+  const r = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: body === undefined ? undefined : JSON.stringify(body) }).catch(() => null);
+  if (!r) return { ok: false, error: "Le serveur ne répond pas." };
+  if (r.status === 204) return { ok: true, data: null };
+  const j = await r.json().catch(() => null);
+  return r.ok ? { ok: true, data: j?.data } : { ok: false, error: j?.detail ?? j?.title ?? `Erreur ${r.status}` };
+}
+
+/** Champs communs à la création et à la modification. `type` seulement à la création (il fixe la référence). */
+function Fields({ p, withType }: { p?: Partner; withType: boolean }) {
+  const lab = "flex flex-col gap-1.5 text-xs font-semibold text-ink-2";
+  return (
+    <>
+      <div className="grid grid-cols-2 gap-3">
+        {withType && (
+          <label className={lab}>Type
+            <select name="type" defaultValue={p?.type ?? "garage"} className={field}>{(Object.keys(PARTNER_TYPES) as PartnerType[]).map((t) => <option key={t} value={t}>{PARTNER_TYPES[t]}</option>)}</select>
+          </label>
+        )}
+        <label className={cx(lab, !withType && "col-span-2")}>Nom (organisation ou personne)
+          <input name="name" required minLength={2} maxLength={120} defaultValue={p?.name} className={field} />
+        </label>
+        <label className={lab}>Rôle
+          <input name="role" maxLength={80} defaultValue={p?.role} placeholder="Gérant, commercial…" className={field} />
+        </label>
+        <label className={lab}>Contact professionnel
+          <input name="contact" maxLength={160} defaultValue={p?.contact} placeholder="E-mail ou téléphone pro" className={field} />
+        </label>
+        <label className={lab}>Responsable
+          <select name="owner" defaultValue={p?.owner ?? "Johan"} className={field}>{PARTNER_OWNERS.map((o) => <option key={o}>{o}</option>)}</select>
+        </label>
+        <label className={lab}>Consentement
+          <select name="consent" defaultValue={p?.consent ?? "À recueillir"} className={field}>{CONSENTS.map((c) => <option key={c}>{c}</option>)}</select>
+        </label>
+      </div>
+      <label className={lab}>Prochaine action
+        <input name="next" maxLength={200} defaultValue={p?.next} className={field} />
+      </label>
+      <label className={lab}>Matériel prêté ou testé
+        <input name="gear" maxLength={120} defaultValue={p?.gear} className={field} />
+      </label>
+      <label className={lab}>Note (aucune donnée sensible)
+        <textarea name="note" rows={3} maxLength={2000} defaultValue={p?.note} className="resize-y rounded-xl border border-[#e5dfd6] bg-surface-2 px-3 py-2.5 text-[13px] font-normal text-ink" />
+      </label>
+    </>
+  );
+}
+
+const read = (form: HTMLFormElement) => {
+  const f = new FormData(form);
+  const s = (k: string) => String(f.get(k) ?? "").trim();
+  return { ...(f.has("type") ? { type: s("type") } : {}), name: s("name"), role: s("role"), contact: s("contact"), owner: s("owner"), consent: s("consent"), next: s("next"), gear: s("gear"), note: s("note") };
+};
+
+export function Partners({ initial, available }: { initial: Partner[]; available: boolean }) {
   const reduce = useReducedMotion();
   const [list, setList] = useState(initial);
   const [type, setType] = useState<PartnerType | "all">("all");
-  const [sel, setSel] = useState(initial[0]?.ref ?? "");
+  const [sel, setSel] = useState(initial[0]?.id ?? "");
+  const [mode, setMode] = useState<"view" | "edit" | "delete">("view");
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const createDialog = useRef<HTMLDialogElement>(null);
   const visible = list.filter((p) => type === "all" || p.type === type);
-  const cur = list.find((p) => p.ref === sel) ?? list[0];
+  const cur = list.find((p) => p.id === sel) ?? list[0];
 
-  const advance = (ref: string) => setList((l) => l.map((p) => (p.ref === ref ? { ...p, stage: ((p.stage + 1) % 4) as PartnerStage } : p)));
+  const select = (id: string) => { setSel(id); setMode("view"); setError(null); };
+  const replace = (p: Partner) => setList((l) => l.map((x) => (x.id === p.id ? p : x)));
+
+  async function create(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const form = e.currentTarget;
+    setBusy(true); setError(null);
+    const r = await call(API, "POST", read(form));
+    setBusy(false);
+    if (!r.ok) return setError(r.error);
+    const p = r.data as Partner;
+    setList((l) => [...l, p]);
+    select(p.id);
+    form.reset();
+    createDialog.current?.close();
+  }
+
+  async function patch(p: Partner, changes: Record<string, unknown>) {
+    setBusy(true); setError(null);
+    const r = await call(`${API}/${p.id}`, "PATCH", changes);
+    setBusy(false);
+    if (!r.ok) { setError(r.error); return false; }
+    replace(r.data as Partner);
+    return true;
+  }
+
+  async function save(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    if (cur && await patch(cur, read(e.currentTarget))) setMode("view");
+  }
+
+  async function remove(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    if (!cur) return;
+    const confirm = String(new FormData(e.currentTarget).get("confirm") ?? "");
+    setBusy(true); setError(null);
+    const r = await call(`${API}/${cur.id}`, "DELETE", { confirm });
+    setBusy(false);
+    if (!r.ok) return setError(r.error);
+    const rest = list.filter((p) => p.id !== cur.id);
+    setList(rest);
+    select(rest[0]?.id ?? "");
+  }
 
   return (
     <section aria-label="Partenaires" className="flex flex-col gap-4 px-6 pb-6 pt-4">
@@ -36,58 +139,128 @@ export function Partners({ initial = DEMO_PARTNERS, demo }: { initial?: Partner[
             );
           })}
         </div>
-        {demo && <DemoBadge />}
-      </div>
-
-      <div className="flex flex-wrap items-start gap-3.5">
-        <div className="min-w-0 flex-[999_1_600px] overflow-x-auto">
-          <LayoutGroup>
-            <div className="grid min-w-[680px] grid-cols-4 gap-3">
-              {PARTNER_STAGES.map((name, i) => {
-                const cards = visible.filter((p) => p.stage === i);
-                return (
-                  <div key={name} className={cx("flex min-h-[420px] flex-col gap-2.5 rounded-[18px] p-2.5", STAGE_TINT[i])}>
-                    <span className="flex items-center gap-2 p-1"><h3 className="text-sm font-semibold">{name}</h3><span className="rounded-full bg-white/80 px-1.5 font-mono text-[11px]">{cards.length}</span></span>
-                    {cards.map((p) => (
-                      <motion.button key={p.ref} layout={!reduce} layoutId={reduce ? undefined : `p-${p.ref}`} transition={{ type: "spring", stiffness: 420, damping: 32 }}
-                        type="button" aria-pressed={sel === p.ref} onClick={() => setSel(p.ref)}
-                        className={cx("flex w-full flex-col gap-2 rounded-[var(--radius-card)] border-[1.5px] bg-white p-3 text-left shadow-[var(--shadow-card)]", sel === p.ref ? "border-accent" : "border-line-soft")}>
-                        <span className="flex items-center justify-between"><Pill tone={TYPE_TONE[p.type]}>{PARTNER_TYPES[p.type]}</Pill><span className="font-mono text-[11px] text-ink-3">{p.ref}</span></span>
-                        <span className="text-sm font-semibold">{p.name}</span>
-                        <span className="text-xs text-ink-3">{p.next}</span>
-                      </motion.button>
-                    ))}
-                    {cards.length === 0 && <div className="rounded-[14px] border-[1.5px] border-dashed border-ink/10 px-3 py-6 text-center text-xs text-ink-3">Aucun contact</div>}
-                  </div>
-                );
-              })}
-            </div>
-          </LayoutGroup>
+        <div className="flex gap-2">
+          {list.length > 0 && <a href={`${API}/export`} className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-[#e5dfd6] bg-white px-3 text-[13px] font-semibold"><Download size={14} aria-hidden />Exporter tout</a>}
+          <button type="button" disabled={!available} onClick={() => { setError(null); createDialog.current?.showModal(); }} className="inline-flex h-9 items-center gap-1.5 rounded-xl bg-accent px-3.5 text-[13px] font-semibold text-white transition hover:bg-accent-hover disabled:opacity-50">
+            <Plus size={14} aria-hidden />Nouveau partenaire
+          </button>
         </div>
-
-        {cur && (
-          <aside aria-label="Fiche contact" className="flex min-w-0 flex-[1_1_280px] flex-col gap-3.5 rounded-[var(--radius-panel)] border border-line bg-surface-2 p-5">
-            <div className="flex items-center gap-3">
-              <span className={cx("grid size-[46px] place-items-center rounded-[14px] font-display text-[17px] font-bold", TONE[TYPE_TONE[cur.type]].bg, TONE[TYPE_TONE[cur.type]].ink)}>{cur.name.charAt(0)}</span>
-              <div className="flex flex-col gap-0.5"><h2 className="text-[17px] font-bold">{cur.name}</h2><span className="text-xs text-ink-3">{PARTNER_TYPES[cur.type]} · {PARTNER_STAGES[cur.stage]}</span></div>
-            </div>
-            <dl className="grid grid-cols-[110px_minmax(0,1fr)] gap-x-2.5 gap-y-2.5 text-[13px]">
-              <dt className="text-ink-3">Prochaine action</dt><dd>{cur.next}</dd>
-              <dt className="text-ink-3">Responsable</dt><dd>{cur.owner}</dd>
-              <dt className="text-ink-3">Matériel</dt><dd>{cur.gear}</dd>
-              <dt className="text-ink-3">Consentement</dt><dd><Pill tone={cur.consent === "À recueillir" ? "amber" : "neutral"}>{cur.consent}</Pill></dd>
-            </dl>
-            <label className="flex flex-col gap-1.5 text-xs font-semibold text-ink-2">Note
-              <textarea rows={3} placeholder="Pas de donnée sensible ici…" className="resize-y rounded-xl border border-[#e5dfd6] bg-white px-3 py-2.5 text-[13px] font-normal text-ink" />
-            </label>
-            <div className="flex flex-wrap gap-2">
-              <button type="button" onClick={() => advance(cur.ref)} className="h-10 flex-1 rounded-xl bg-accent text-[13px] font-semibold text-white transition hover:bg-accent-hover active:scale-[0.98]">Étape suivante</button>
-              <button type="button" className="h-10 rounded-xl border border-[#e5dfd6] bg-white px-3.5 text-[13px]">Planifier</button>
-            </div>
-            <span className="text-xs text-ink-3">Données minimisées : nom, rôle, contact professionnel. Conservation selon DATA_CLASSIFICATION.{demo ? " Modifications locales, non enregistrées (S8 non connecté)." : ""}</span>
-          </aside>
-        )}
       </div>
+
+      {!available && <p role="alert" className="rounded-xl border border-[#f6d2c1] bg-coral-bg px-3.5 py-2.5 text-[13px] text-coral-ink">Le fichier data/partners.json est illisible : rien n’est modifiable tant qu’il n’est pas réparé.</p>}
+
+      {list.length === 0 ? (
+        <div className="flex flex-col items-center gap-3 rounded-[var(--radius-panel)] border border-dashed border-ink/15 px-6 py-14 text-center">
+          <h2 className="text-lg font-bold">Aucun partenaire</h2>
+          <p className="max-w-md text-[13px] text-ink-3">Garages testeurs, fournisseurs d’adaptateurs OBD et bêta-testeurs. Les fiches restent sur ce poste, dans un fichier ignoré par Git.</p>
+          <button type="button" disabled={!available} onClick={() => createDialog.current?.showModal()} className="inline-flex h-10 items-center gap-1.5 rounded-xl bg-accent px-4 text-[13px] font-semibold text-white disabled:opacity-50"><Plus size={14} aria-hidden />Créer le premier</button>
+        </div>
+      ) : (
+        <div className="flex flex-wrap items-start gap-3.5">
+          <div className="min-w-0 flex-[999_1_600px] overflow-x-auto">
+            <LayoutGroup>
+              <div className="grid min-w-[680px] grid-cols-4 gap-3">
+                {PARTNER_STAGES.map((name, i) => {
+                  const cards = visible.filter((p) => p.stage === i);
+                  return (
+                    <div key={name} className={cx("flex min-h-[420px] flex-col gap-2.5 rounded-[18px] p-2.5", STAGE_TINT[i])}>
+                      <span className="flex items-center gap-2 p-1"><h3 className="text-sm font-semibold">{name}</h3><span className="rounded-full bg-white/80 px-1.5 font-mono text-[11px]">{cards.length}</span></span>
+                      {cards.map((p) => (
+                        <motion.button key={p.id} layout={!reduce} layoutId={reduce ? undefined : `p-${p.id}`} transition={{ type: "spring", stiffness: 420, damping: 32 }}
+                          type="button" aria-pressed={cur?.id === p.id} onClick={() => select(p.id)}
+                          className={cx("flex w-full flex-col gap-2 rounded-[var(--radius-card)] border-[1.5px] bg-white p-3 text-left shadow-[var(--shadow-card)]", cur?.id === p.id ? "border-accent" : "border-line-soft")}>
+                          <span className="flex items-center justify-between"><Pill tone={TYPE_TONE[p.type]}>{PARTNER_TYPES[p.type]}</Pill><span className="font-mono text-[11px] text-ink-3">{p.ref}</span></span>
+                          <span className="text-sm font-semibold">{p.name}</span>
+                          {p.next && <span className="text-xs text-ink-3">{p.next}</span>}
+                        </motion.button>
+                      ))}
+                      {cards.length === 0 && <div className="rounded-[14px] border-[1.5px] border-dashed border-ink/10 px-3 py-6 text-center text-xs text-ink-3">Aucun contact</div>}
+                    </div>
+                  );
+                })}
+              </div>
+            </LayoutGroup>
+          </div>
+
+          {cur && (
+            <aside aria-label="Fiche partenaire" className="flex min-w-0 flex-[1_1_300px] flex-col gap-3.5 rounded-[var(--radius-panel)] border border-line bg-surface-2 p-5">
+              <div className="flex items-center gap-3">
+                <span className={cx("grid size-[46px] shrink-0 place-items-center rounded-[14px] font-display text-[17px] font-bold", TONE[TYPE_TONE[cur.type]].bg, TONE[TYPE_TONE[cur.type]].ink)}>{cur.name.charAt(0)}</span>
+                <div className="flex min-w-0 flex-1 flex-col gap-0.5"><h2 className="truncate text-[17px] font-bold">{cur.name}</h2><span className="text-xs text-ink-3">{cur.ref} · {PARTNER_TYPES[cur.type]}</span></div>
+                {mode === "view" && <button type="button" onClick={() => setMode("edit")} className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-[#e5dfd6] bg-white px-2.5 text-xs font-semibold"><Pencil size={13} aria-hidden />Modifier</button>}
+              </div>
+
+              {mode === "edit" ? (
+                <form key={cur.id + cur.updatedAt} onSubmit={save} className="flex flex-col gap-3">
+                  <Fields p={cur} withType={false} />
+                  <div className="flex justify-end gap-2">
+                    <button type="button" onClick={() => { setMode("view"); setError(null); }} className="h-9 rounded-xl border border-[#e5dfd6] bg-white px-3.5 text-[13px] font-semibold">Annuler</button>
+                    <button type="submit" disabled={busy} className="h-9 rounded-xl bg-accent px-3.5 text-[13px] font-semibold text-white disabled:opacity-60">{busy ? "…" : "Enregistrer"}</button>
+                  </div>
+                </form>
+              ) : (
+                <>
+                  <fieldset className="flex flex-col gap-2">
+                    <legend className="mb-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-3">Étape</legend>
+                    <div className="grid grid-cols-2 gap-1.5">
+                      {PARTNER_STAGES.map((s, i) => (
+                        <button key={s} type="button" aria-pressed={cur.stage === i} disabled={cur.stage === i || busy} onClick={() => void patch(cur, { stage: i as PartnerStage })}
+                          className={cx("h-9 rounded-xl border px-2 text-xs font-semibold transition", cur.stage === i ? "border-accent bg-accent text-white" : "border-[#e5dfd6] bg-white hover:border-ink/30")}>{s}</button>
+                      ))}
+                    </div>
+                  </fieldset>
+                  <dl className="grid grid-cols-[110px_minmax(0,1fr)] gap-x-2.5 gap-y-2.5 text-[13px]">
+                    <dt className="text-ink-3">Rôle</dt><dd>{cur.role || "—"}</dd>
+                    <dt className="text-ink-3">Contact pro</dt><dd className="break-all">{cur.contact || "—"}</dd>
+                    <dt className="text-ink-3">Prochaine action</dt><dd>{cur.next || "—"}</dd>
+                    <dt className="text-ink-3">Responsable</dt><dd>{cur.owner}</dd>
+                    <dt className="text-ink-3">Matériel</dt><dd>{cur.gear || "—"}</dd>
+                    <dt className="text-ink-3">Consentement</dt><dd><Pill tone={cur.consent === "À recueillir" ? "amber" : cur.consent === "Recueilli" ? "mint" : "neutral"}>{cur.consent}</Pill></dd>
+                    {cur.note && <><dt className="text-ink-3">Note</dt><dd className="whitespace-pre-line">{cur.note}</dd></>}
+                    <dt className="text-ink-3">Mis à jour</dt><dd className="text-ink-3">{new Date(cur.updatedAt).toLocaleString("fr-FR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</dd>
+                  </dl>
+                  {mode === "delete" ? (
+                    <form onSubmit={remove} className="flex flex-col gap-2 rounded-xl border border-[#f6d2c1] bg-coral-bg p-3">
+                      <label className="flex flex-col gap-1.5 text-xs font-semibold text-coral-ink">Suppression définitive. Retape <span className="font-mono">{cur.ref}</span> pour confirmer.
+                        <input name="confirm" autoComplete="off" required className={cx(field, "bg-white font-mono")} />
+                      </label>
+                      <div className="flex justify-end gap-2">
+                        <button type="button" onClick={() => { setMode("view"); setError(null); }} className="h-9 rounded-xl border border-[#e5dfd6] bg-white px-3.5 text-[13px] font-semibold">Annuler</button>
+                        <button type="submit" disabled={busy} className="h-9 rounded-xl bg-[#b4402a] px-3.5 text-[13px] font-semibold text-white disabled:opacity-60">Supprimer</button>
+                      </div>
+                    </form>
+                  ) : (
+                    <div className="flex flex-wrap gap-2">
+                      <a href={`${API}/export?id=${cur.id}`} className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-[#e5dfd6] bg-white px-3 text-[13px] font-semibold"><Download size={14} aria-hidden />Exporter la fiche</a>
+                      <button type="button" onClick={() => setMode("delete")} className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-[#e5dfd6] bg-white px-3 text-[13px] font-semibold text-coral-ink"><Trash2 size={14} aria-hidden />Supprimer</button>
+                    </div>
+                  )}
+                </>
+              )}
+              {error && <p role="alert" className="text-[13px] text-coral-ink">{error}</p>}
+              <span className="text-xs text-ink-3">Données minimisées : nom, rôle, contact professionnel. Stockées sur ce poste uniquement (data/partners.json, ignoré par Git). Export et suppression sur demande.</span>
+            </aside>
+          )}
+        </div>
+      )}
+
+      <dialog ref={createDialog} aria-labelledby="new-partner-title" className="m-auto w-[min(560px,calc(100vw-32px))] rounded-[var(--radius-panel)] border border-line bg-white p-0 text-ink shadow-[var(--shadow-lift)] backdrop:bg-ink/30">
+        <form onSubmit={create} className="flex flex-col gap-3 p-5">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex flex-col gap-0.5">
+              <h2 id="new-partner-title" className="text-lg font-bold">Nouveau partenaire</h2>
+              <span className="text-xs text-ink-3">Colonne « À contacter ». Référence attribuée automatiquement.</span>
+            </div>
+            <button type="button" onClick={() => createDialog.current?.close()} aria-label="Fermer" className="grid size-8 place-items-center rounded-lg text-ink-3 hover:bg-surface-2"><X size={16} /></button>
+          </div>
+          <Fields withType />
+          {error && <p role="alert" className="text-[13px] text-coral-ink">{error}</p>}
+          <div className="flex justify-end gap-2">
+            <button type="button" onClick={() => createDialog.current?.close()} className="h-10 rounded-xl border border-[#e5dfd6] px-4 text-[13px] font-semibold">Annuler</button>
+            <button type="submit" disabled={busy} className="h-10 rounded-xl bg-accent px-4 text-[13px] font-semibold text-white disabled:opacity-60">{busy ? "Création…" : "Créer"}</button>
+          </div>
+        </form>
+      </dialog>
     </section>
   );
 }

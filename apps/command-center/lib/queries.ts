@@ -1,8 +1,9 @@
 import "server-only";
 import { ADRS, DECISIONS, DELIVERABLES, PLAN_DAY, PLAN_SOURCE, type Adr, type AdrStatus, type Decision, type Deliverable, type Owner, type Status } from "./data/plan";
-import { DEMO_PARTNERS, type Partner } from "./data/demo";
+import type { Partner } from "./partners";
+import { readPartners } from "./sources/partners-store";
 import { compareBranch, getBranchHead, getRepo, listAdrFiles, listBranches, listIssues, listOpenPulls, readRaw, type GhComment, type GhIssue } from "./sources/github";
-import { fromDemo, fromStatic, type Sourced } from "./sources/types";
+import { fromStatic, type Sourced } from "./sources/types";
 import { planDayAt, todayInParis, type PlanDay } from "./plan-day";
 
 /* Convention de labels GitHub proposée (CC-M1_REPORT §5) :
@@ -236,7 +237,12 @@ export async function getPlanDay(): Promise<Sourced<PlanDay>> {
   return { value: null, source: "PLAN_START ou S1", fetchedAt: null, freshness: "unknown", demo: false };
 }
 
-/** S8 non branché en CC-M1 tant que l'accès Supabase n'est pas validé : démonstration signalée. */
+/** Partenaires : fichier local ignoré par Git (choix de Johan, 2026-11-06), en attendant S8 (Supabase). */
 export async function getPartners(): Promise<Sourced<Partner[]>> {
-  return fromDemo(DEMO_PARTNERS, "S8 · Supabase admin.partners (non connecté)");
+  try {
+    const { partners } = await readPartners();
+    return { value: partners, source: "Fichier local · data/partners.json", fetchedAt: new Date().toISOString(), freshness: "live", demo: false };
+  } catch {
+    return { value: null, source: "Fichier local · data/partners.json (illisible)", fetchedAt: null, freshness: "unknown", demo: false };
+  }
 }

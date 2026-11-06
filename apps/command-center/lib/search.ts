@@ -24,7 +24,7 @@ const PAGES: [string, string, string][] = [
   ["Tableau", "Kanban des livrables M0", "/crm/tableau"],
   ["Planning", "Gantt J1 → J10 et jalons", "/crm/planning"],
   ["Équipe", "Humains, agents et branches", "/crm/equipe"],
-  ["Partenaires", "Pipeline et fiches (démonstration)", "/crm/partenaires"],
+  ["Partenaires", "Garages, fournisseurs OBD, bêta-testeurs", "/crm/partenaires"],
   ["Décisions", "Décisions à prendre", "/crm/decisions"],
   ["Opérations", "Vue d’ensemble des 7 départements", "/ops"],
 ];

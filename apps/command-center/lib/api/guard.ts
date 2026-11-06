@@ -8,7 +8,7 @@ import { githubConfigured } from "@/lib/sources/github";
  * serveur lié à 127.0.0.1, JSON obligatoire (impose un preflight CORS) et origine du même hôte.
  * Renvoie une réponse d'erreur, ou null si la requête peut continuer.
  */
-export function guardWrite(req: NextRequest) {
+export function guardWrite(req: NextRequest, { github = true }: { github?: boolean } = {}) {
   if (!req.headers.get("content-type")?.startsWith("application/json")) {
     return problem(415, "Type de contenu refusé", "Attendu : application/json");
   }
@@ -16,7 +16,7 @@ export function guardWrite(req: NextRequest) {
   const origin = req.headers.get("origin");
   const sameHost = (() => { try { return new URL(origin ?? "").host === req.headers.get("host"); } catch { return false; } })();
   if (origin && !sameHost) return problem(403, "Origine refusée");
-  if (!githubConfigured()) return problem(503, "GitHub non connecté", "Renseigner GITHUB_REPO et GITHUB_TOKEN dans .env.local.");
+  if (github && !githubConfigured()) return problem(503, "GitHub non connecté", "Renseigner GITHUB_REPO et GITHUB_TOKEN dans .env.local.");
   return null;
 }
 
