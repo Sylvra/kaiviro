@@ -1,9 +1,10 @@
 import Link from "next/link";
 import { ArrowUpRight, GitPullRequest } from "lucide-react";
 import { MILESTONES, PEOPLE, STATUS_LABELS, type Deliverable } from "@/lib/data/plan";
-import { agentState, getBranchActivity, getDecisions, getDeliverables, getOpenPullCount, getPlanDay } from "@/lib/queries";
+import { agentState, getBranchActivity, getDecisions, getDeliverables, getOpenPullCount, getPartners, getPlanDay } from "@/lib/queries";
 import { countByStatus, planSlice } from "@/lib/overview";
-import { phaseLabel } from "@/lib/plan-day";
+import { phaseLabel, todayInParis } from "@/lib/plan-day";
+import { dueState, followUps } from "@/lib/partners";
 import { OWNER_LABEL, OWNER_TONE } from "@/components/tone";
 import { Panel, PanelTitle, Pill, SourceNote, cx } from "@/components/ui";
 
@@ -38,9 +39,12 @@ function Kpi({ label, value, hint, tone }: { label: string; value: string; hint?
 }
 
 export default async function Page() {
-  const [deliv, decisions, planDay, pulls, activity] = await Promise.all([
-    getDeliverables(), getDecisions(), getPlanDay(), getOpenPullCount(), getBranchActivity(PEOPLE.map((p) => p.branch)),
+  const [deliv, decisions, planDay, pulls, activity, partners] = await Promise.all([
+    getDeliverables(), getDecisions(), getPlanDay(), getOpenPullCount(), getBranchActivity(PEOPLE.map((p) => p.branch)), getPartners(),
   ]);
+  const today = todayInParis();
+  const relances = followUps(partners.value ?? [], today);
+  const relanceRows = [...relances.overdue, ...relances.today, ...relances.soon];
   const items = deliv.value ?? [];
   const [todo, doing, review, done] = countByStatus(items);
   const day = planDay.value;
@@ -88,6 +92,27 @@ export default async function Page() {
         </Panel>
 
         <div className="flex flex-col gap-4">
+          <Panel>
+            <PanelTitle aside={<Link href="/crm/partenaires" className="text-xs font-semibold text-accent hover:underline">Partenaires</Link>}>Relances partenaires</PanelTitle>
+            {partners.value === null && <p className="px-3 text-[13px] text-coral-ink">Fichier local des partenaires illisible.</p>}
+            {partners.value !== null && relanceRows.length === 0 && <p className="px-3 text-[13px] text-ink-3">Aucune relance en retard ni dans les 7 prochains jours.</p>}
+            {relanceRows.length > 0 && (
+              <ul className="flex flex-col">
+                {relanceRows.map((p) => {
+                  const s = dueState(p.due, today);
+                  return (
+                    <li key={p.id}>
+                      <Link href={`/crm/partenaires?p=${encodeURIComponent(p.id)}`} className="flex items-center gap-2.5 rounded-[12px] px-3 py-2.5 hover:bg-surface-2">
+                        <span className="flex min-w-0 flex-1 flex-col gap-0.5"><span className="truncate text-[13px] font-semibold">{p.name}</span><span className="truncate text-xs text-ink-3">{p.ref} · {p.next || "Prochaine action non précisée"}</span></span>
+                        <Pill tone={s === "overdue" ? "coral" : s === "today" ? "amber" : "neutral"}>{s === "overdue" ? "En retard" : s === "today" ? "Aujourd’hui" : new Date(`${p.due}T12:00:00Z`).toLocaleDateString("fr-FR", { day: "numeric", month: "short", timeZone: "UTC" })}</Pill>
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </Panel>
+
           <Panel>
             <PanelTitle aside={<Link href="/crm/decisions" className="text-xs font-semibold text-accent hover:underline">Tout voir</Link>}>Décisions à trancher</PanelTitle>
             {openDecisions.length === 0 ? <p className="px-3 text-[13px] text-ink-3">Aucune décision ouverte.</p> : (

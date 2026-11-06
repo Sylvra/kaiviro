@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { PartnerInput, PartnerPatch, nextRef } from "@/lib/partners";
+import { PartnerInput, PartnerPatch, addDays, dueState, followUps, nextRef } from "@/lib/partners";
 import { createPartner, deletePartner, readPartners, updatePartner } from "@/lib/sources/partners-store";
 
 describe("règles des partenaires", () => {
@@ -18,6 +18,28 @@ describe("règles des partenaires", () => {
   it("refuse une modification vide et le changement de type", () => {
     expect(PartnerPatch.safeParse({}).success).toBe(false);
     expect(PartnerPatch.parse({ type: "beta", stage: 2 })).toEqual({ stage: 2 });
+  });
+});
+
+describe("relances", () => {
+  const p = (ref: string, due?: string) => ({ ...PartnerInput.parse({ type: "garage", name: `Garage ${ref}` }), id: ref, ref, due, stage: 0 as const, createdAt: "", updatedAt: "" });
+  it("situe une relance par rapport à aujourd'hui", () => {
+    expect(dueState(undefined, "2026-11-06")).toBe("none");
+    expect(dueState("2026-11-05", "2026-11-06")).toBe("overdue");
+    expect(dueState("2026-11-06", "2026-11-06")).toBe("today");
+    expect(dueState("2026-11-13", "2026-11-06")).toBe("soon");
+    expect(dueState("2026-11-14", "2026-11-06")).toBe("later");
+    expect(addDays("2026-11-28", 7)).toBe("2026-12-05");
+  });
+  it("trie retard, aujourd'hui et 7 prochains jours", () => {
+    const f = followUps([p("A", "2026-11-10"), p("B", "2026-11-01"), p("C", "2026-11-06"), p("D"), p("E", "2026-12-01"), p("F", "2026-11-04")], "2026-11-06");
+    expect(f.overdue.map((x) => x.ref)).toEqual(["B", "F"]);
+    expect(f.today.map((x) => x.ref)).toEqual(["C"]);
+    expect(f.soon.map((x) => x.ref)).toEqual(["A"]);
+  });
+  it("refuse une date de relance mal formée", () => {
+    expect(PartnerPatch.safeParse({ due: "06/11/2026" }).success).toBe(false);
+    expect(PartnerPatch.parse({ due: "" })).toEqual({ due: "" });
   });
 });
 

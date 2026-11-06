@@ -24,6 +24,8 @@ export interface Partner {
   contact: string;
   stage: PartnerStage;
   next: string;
+  /** date de relance AAAA-MM-JJ, "" si aucune (absente des fiches créées avant les relances) */
+  due?: string;
   owner: (typeof PARTNER_OWNERS)[number];
   gear: string;
   consent: (typeof CONSENTS)[number];
@@ -41,6 +43,7 @@ const fields = {
   contact: text(160),
   stage: z.number().int().min(0).max(3),
   next: text(200),
+  due: z.union([z.literal(""), z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Date de relance au format AAAA-MM-JJ").refine((d) => !Number.isNaN(Date.parse(d)), "Date de relance invalide")]),
   owner: z.enum(PARTNER_OWNERS),
   gear: text(120),
   consent: z.enum(CONSENTS),
@@ -54,6 +57,7 @@ export const PartnerInput = z.object({
   contact: fields.contact.default(""),
   stage: fields.stage.default(0),
   next: fields.next.default(""),
+  due: fields.due.default(""),
   owner: fields.owner.default("Johan"),
   gear: fields.gear.default(""),
   consent: fields.consent.default("À recueillir"),
@@ -64,6 +68,28 @@ export type PartnerInput = z.infer<typeof PartnerInput>;
 /** Modification partielle : le type (donc la référence) ne change pas ; les clés inconnues sont ignorées. */
 export const PartnerPatch = z.object(fields).partial().refine((p) => Object.keys(p).length > 0, "Aucune modification");
 export type PartnerPatch = z.infer<typeof PartnerPatch>;
+
+export type DueState = "overdue" | "today" | "soon" | "later" | "none";
+
+/** Position d'une relance par rapport à aujourd'hui (dates AAAA-MM-JJ). « soon » : dans les 7 jours. */
+export function dueState(due: string | undefined, today: string): DueState {
+  if (!due) return "none";
+  if (due < today) return "overdue";
+  if (due === today) return "today";
+  return due <= addDays(today, 7) ? "soon" : "later";
+}
+
+export function addDays(day: string, n: number): string {
+  const d = new Date(`${day}T12:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + n);
+  return d.toISOString().slice(0, 10);
+}
+
+/** Relances triées par date : en retard, aujourd'hui, 7 prochains jours. */
+export function followUps(partners: Partner[], today: string) {
+  const by = (s: DueState) => partners.filter((p) => dueState(p.due, today) === s).sort((a, b) => (a.due ?? "").localeCompare(b.due ?? ""));
+  return { overdue: by("overdue"), today: by("today"), soon: by("soon") };
+}
 
 /** Prochaine référence libre par type : G-01, O-02, T-03… (jamais réutilisée après suppression du plus grand numéro). */
 export function nextRef(list: Pick<Partner, "ref">[], type: PartnerType): string {

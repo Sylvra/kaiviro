@@ -3,6 +3,8 @@ import "./globals.css";
 import { Sidebar } from "@/components/Sidebar";
 import { getDecisions, getDeliverables, getPartners, getPlanDay } from "@/lib/queries";
 import { getSourceStatuses } from "@/lib/sources/registry";
+import { followUps } from "@/lib/partners";
+import { todayInParis } from "@/lib/plan-day";
 
 export const metadata: Metadata = {
   title: { default: "KAIVIRO — Command Center", template: "%s · KAIVIRO" },
@@ -26,6 +28,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const counts = {
     myOpen: of("A").filter((x) => x.status !== 3).length,
     decisionsOpen: (decisions.value ?? []).filter((x) => !x.resolved).length,
+    followUpsDue: (() => { const f = followUps(partners.value ?? [], todayInParis()); return f.overdue.length + f.today.length; })(),
     day: day ? (day.current === 0 ? "J0" : `J${day.current}`) : "J?",
     spaces: [
       { name: "Fondations M0", href: "/crm/tableau", pct: pct(done(d), d.length), meta: `${d.length} livrables · 2 missions`, dot: "bg-coral-dot" },

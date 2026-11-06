@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 import { LayoutGroup, motion, useReducedMotion } from "motion/react";
 import { Download, Pencil, Plus, Trash2, X } from "lucide-react";
-import { CONSENTS, PARTNER_OWNERS, PARTNER_STAGES, PARTNER_TYPES, type Partner, type PartnerStage, type PartnerType } from "@/lib/partners";
+import { CONSENTS, PARTNER_OWNERS, PARTNER_STAGES, PARTNER_TYPES, addDays, dueState, type Partner, type PartnerStage, type PartnerType } from "@/lib/partners";
 import type { Tone } from "@/lib/data/ops";
 import { Pill, cx } from "./ui";
 import { TONE } from "./tone";
@@ -48,9 +48,14 @@ function Fields({ p, withType }: { p?: Partner; withType: boolean }) {
           <select name="consent" defaultValue={p?.consent ?? "À recueillir"} className={field}>{CONSENTS.map((c) => <option key={c}>{c}</option>)}</select>
         </label>
       </div>
-      <label className={lab}>Prochaine action
-        <input name="next" maxLength={200} defaultValue={p?.next} className={field} />
-      </label>
+      <div className="grid grid-cols-[1fr_auto] gap-3">
+        <label className={lab}>Prochaine action
+          <input name="next" maxLength={200} defaultValue={p?.next} className={field} />
+        </label>
+        <label className={lab}>Relance le
+          <input name="due" type="date" defaultValue={p?.due ?? ""} className={field} />
+        </label>
+      </div>
       <label className={lab}>Matériel prêté ou testé
         <input name="gear" maxLength={120} defaultValue={p?.gear} className={field} />
       </label>
@@ -64,14 +69,24 @@ function Fields({ p, withType }: { p?: Partner; withType: boolean }) {
 const read = (form: HTMLFormElement) => {
   const f = new FormData(form);
   const s = (k: string) => String(f.get(k) ?? "").trim();
-  return { ...(f.has("type") ? { type: s("type") } : {}), name: s("name"), role: s("role"), contact: s("contact"), owner: s("owner"), consent: s("consent"), next: s("next"), gear: s("gear"), note: s("note") };
+  return { ...(f.has("type") ? { type: s("type") } : {}), name: s("name"), role: s("role"), contact: s("contact"), owner: s("owner"), consent: s("consent"), next: s("next"), due: s("due"), gear: s("gear"), note: s("note") };
 };
 
-export function Partners({ initial, available }: { initial: Partner[]; available: boolean }) {
+/** Pastille de relance : date courte, rouge si dépassée, ambre si aujourd'hui. */
+function DuePill({ due, today }: { due?: string; today: string }) {
+  const s = dueState(due, today);
+  if (s === "none") return null;
+  const label = s === "overdue" ? `Relance en retard · ${shortDate(due!)}` : s === "today" ? "Relance aujourd’hui" : `Relance ${shortDate(due!)}`;
+  return <Pill tone={s === "overdue" ? "coral" : s === "today" ? "amber" : "neutral"}>{label}</Pill>;
+}
+
+const shortDate = (d: string) => new Date(`${d}T12:00:00Z`).toLocaleDateString("fr-FR", { day: "numeric", month: "short", timeZone: "UTC" });
+
+export function Partners({ initial, available, today, focus }: { initial: Partner[]; available: boolean; today: string; focus?: string }) {
   const reduce = useReducedMotion();
   const [list, setList] = useState(initial);
   const [type, setType] = useState<PartnerType | "all">("all");
-  const [sel, setSel] = useState(initial[0]?.id ?? "");
+  const [sel, setSel] = useState((focus && initial.some((p) => p.id === focus) ? focus : initial[0]?.id) ?? "");
   const [mode, setMode] = useState<"view" | "edit" | "delete">("view");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -172,6 +187,7 @@ export function Partners({ initial, available }: { initial: Partner[]; available
                           <span className="flex items-center justify-between"><Pill tone={TYPE_TONE[p.type]}>{PARTNER_TYPES[p.type]}</Pill><span className="font-mono text-[11px] text-ink-3">{p.ref}</span></span>
                           <span className="text-sm font-semibold">{p.name}</span>
                           {p.next && <span className="text-xs text-ink-3">{p.next}</span>}
+                          <DuePill due={p.due} today={today} />
                         </motion.button>
                       ))}
                       {cards.length === 0 && <div className="rounded-[14px] border-[1.5px] border-dashed border-ink/10 px-3 py-6 text-center text-xs text-ink-3">Aucun contact</div>}
@@ -213,6 +229,16 @@ export function Partners({ initial, available }: { initial: Partner[]; available
                     <dt className="text-ink-3">Rôle</dt><dd>{cur.role || "—"}</dd>
                     <dt className="text-ink-3">Contact pro</dt><dd className="break-all">{cur.contact || "—"}</dd>
                     <dt className="text-ink-3">Prochaine action</dt><dd>{cur.next || "—"}</dd>
+                    <dt className="text-ink-3">Relance</dt>
+                    <dd className="flex flex-wrap items-center gap-1.5">
+                      {cur.due ? <DuePill due={cur.due} today={today} /> : <span className="text-ink-3">Aucune</span>}
+                      <button type="button" disabled={busy} onClick={() => void patch(cur, { due: addDays(cur.due && cur.due > today ? cur.due : today, 7) })}
+                        className="h-7 rounded-lg border border-[#e5dfd6] bg-white px-2 text-xs font-semibold disabled:opacity-50">{cur.due ? "+7 jours" : "Dans 7 jours"}</button>
+                      {cur.due && (
+                        <button type="button" disabled={busy} onClick={() => void patch(cur, { due: "" })}
+                          className="h-7 rounded-lg border border-[#e5dfd6] bg-white px-2 text-xs font-semibold disabled:opacity-50">Fait</button>
+                      )}
+                    </dd>
                     <dt className="text-ink-3">Responsable</dt><dd>{cur.owner}</dd>
                     <dt className="text-ink-3">Matériel</dt><dd>{cur.gear || "—"}</dd>
                     <dt className="text-ink-3">Consentement</dt><dd><Pill tone={cur.consent === "À recueillir" ? "amber" : cur.consent === "Recueilli" ? "mint" : "neutral"}>{cur.consent}</Pill></dd>

@@ -12,6 +12,8 @@ import { Logo, cx } from "./ui";
 export interface SidebarCounts {
   myOpen: number;
   decisionsOpen: number;
+  /** relances partenaires en retard ou du jour */
+  followUpsDue: number;
   day: string;
   spaces: { name: string; href: string; pct: number; meta: string; dot: string }[];
   sourcesConnected: number;
@@ -49,6 +51,7 @@ export function Sidebar({ counts }: { counts: SidebarCounts }) {
             {[
               { label: "Mes livrables", href: "/crm/tableau", badge: String(counts.myOpen), hot: false, shape: "rounded-full border-mint-dot" },
               { label: "Décisions à prendre", href: "/crm/decisions", badge: String(counts.decisionsOpen), hot: counts.decisionsOpen > 0, shape: "rounded-[2px] border-coral-dot" },
+              { label: "Relances", href: "/crm/apercu", badge: String(counts.followUpsDue), hot: counts.followUpsDue > 0, shape: "rounded-full border-sky-dot" },
               { label: "Planning M0", href: "/crm/planning", badge: counts.day, hot: false, shape: "rounded-[2px] border-amber-dot" },
             ].map((s) => (
               <Link key={s.label} href={s.href} className="flex h-9 items-center gap-2.5 rounded-[10px] px-2.5 text-[13px] text-ink-2 transition-colors hover:bg-white/70">
