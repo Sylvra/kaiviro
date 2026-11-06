@@ -3,7 +3,7 @@ import { mkdtemp, readFile, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { PartnerInput, PartnerPatch, addDays, diffEvents, dueState, followUps, nextRef } from "@/lib/partners";
-import { addInteraction, createPartner, deletePartner, readPartners, updatePartner } from "@/lib/sources/partners-store";
+import { addInteraction, createPartner, deletePartner, importPartners, listBackups, readBackup, readPartners, restoreBackup, updatePartner } from "@/lib/sources/partners-store";
 
 describe("règles des partenaires", () => {
   it("attribue la prochaine référence libre par type", () => {
@@ -93,6 +93,32 @@ describe("stockage local", () => {
     const file = JSON.parse(await readFile(path.join(dir, "data", "partners.json"), "utf8"));
     expect(file.version).toBe(1);
     expect(file.partners.map((p: { ref: string }) => p.ref)).toEqual(["G-01"]);
+  });
+
+  it("sauvegarde avant chaque écriture, restaure et refuse les noms de chemin", async () => {
+    const before = (await readPartners()).partners.length;
+    const backups = await listBackups();
+    expect(backups.length).toBeGreaterThan(0); // une écriture a déjà eu lieu plus haut
+    expect(backups[0]!.at < new Date().toISOString()).toBe(true);
+
+    await createPartner(PartnerInput.parse({ type: "obd", name: "Fournisseur à annuler" }));
+    expect((await readPartners()).partners.length).toBe(before + 1);
+    const latest = (await listBackups())[0]!;
+    expect(latest.count).toBe(before); // l'instantané contient l'état d'avant la création
+
+    expect(await restoreBackup(latest.name)).toEqual({ ok: true, count: before });
+    expect((await readPartners()).partners.length).toBe(before);
+
+    expect(await readBackup("../partners.json")).toBeNull();
+    expect((await restoreBackup("..\\..\\x.json")).ok).toBe(false);
+  });
+
+  it("refuse un import invalide sans rien toucher", async () => {
+    const before = await readPartners();
+    expect((await importPartners({ partners: [{ id: "a", ref: "G-01" }] })).ok).toBe(false);
+    expect((await importPartners({ partners: [before.partners[0], before.partners[0]] })).ok).toBe(false); // doublons
+    expect((await importPartners("pas un objet")).ok).toBe(false);
+    expect(await readPartners()).toEqual(before);
   });
 
   it("deux créations simultanées ne se perdent pas", async () => {

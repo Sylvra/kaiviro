@@ -8,6 +8,7 @@ import type { Tone } from "@/lib/data/ops";
 import { Pill, cx } from "./ui";
 import { TONE } from "./tone";
 import { field } from "./NewDeliverable";
+import { PartnerBackups } from "./PartnerBackups";
 
 const TYPE_TONE: Record<PartnerType, Tone> = { garage: "mint", obd: "sky", beta: "lavender" };
 const STAGE_TINT = ["bg-[#f6f3ee]", "bg-[#eef5fc]", "bg-[#e9f7f1]", "bg-[#fff6e3]"];
@@ -191,7 +192,8 @@ export function Partners({ initial, available, today, focus }: { initial: Partne
             );
           })}
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          <PartnerBackups />
           {list.length > 0 && <a href={`${API}/export`} className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-[#e5dfd6] bg-white px-3 text-[13px] font-semibold"><Download size={14} aria-hidden />Exporter tout</a>}
           <button type="button" disabled={!available} onClick={() => { setError(null); createDialog.current?.showModal(); }} className="inline-flex h-9 items-center gap-1.5 rounded-xl bg-accent px-3.5 text-[13px] font-semibold text-white transition hover:bg-accent-hover disabled:opacity-50">
             <Plus size={14} aria-hidden />Nouveau partenaire

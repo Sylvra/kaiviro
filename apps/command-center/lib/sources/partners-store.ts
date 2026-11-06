@@ -1,8 +1,8 @@
 import "server-only";
 import { randomUUID } from "node:crypto";
-import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, readFile, readdir, rename, stat, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { PARTNER_STAGES, diffEvents, nextRef, type InteractionInput, type Partner, type PartnerEvent, type PartnerInput, type PartnerPatch } from "@/lib/partners";
+import { PARTNER_STAGES, StoredPartners, diffEvents, nextRef, type InteractionInput, type Partner, type PartnerEvent, type PartnerInput, type PartnerPatch } from "@/lib/partners";
 
 /**
  * Stockage local des partenaires : un fichier JSON sur le poste de l'administrateur, ignoré par Git.
@@ -24,14 +24,85 @@ export async function readPartners(): Promise<{ partners: Partner[]; exists: boo
   }
 }
 
-/** Écriture atomique (fichier temporaire puis renommage). */
+/** Dossier des instantanés : PARTNERS_BACKUP_DIR (autre disque possible) ou data/backups à côté du fichier. */
+export const backupsDir = () => process.env.PARTNERS_BACKUP_DIR?.trim() || path.join(path.dirname(partnersFile()), "backups");
+export const MAX_BACKUPS = 30;
+const BACKUP_NAME = /^partners-\d{8}-\d{6}-\d{3}\.json$/;
+
+const stamp = (d: Date) => d.toISOString().replace(/[-:]/g, "").replace("T", "-").replace(".", "-").slice(0, 19);
+
+/** Copie l'état actuel dans le dossier des instantanés, puis ne garde que les MAX_BACKUPS plus récents. */
+async function snapshot() {
+  const file = partnersFile();
+  const dir = backupsDir();
+  await mkdir(dir, { recursive: true });
+  try {
+    await copyFile(file, path.join(dir, `partners-${stamp(new Date())}.json`));
+  } catch (e) {
+    if ((e as NodeJS.ErrnoException).code === "ENOENT") return; // rien à sauvegarder avant la première écriture
+    throw e;
+  }
+  const names = (await readdir(dir)).filter((n) => BACKUP_NAME.test(n)).sort();
+  await Promise.all(names.slice(0, Math.max(0, names.length - MAX_BACKUPS)).map((n) => unlink(path.join(dir, n))));
+}
+
+/** Écriture atomique (fichier temporaire puis renommage), précédée d'un instantané de l'état actuel. */
 async function save(partners: Partner[]) {
   const file = partnersFile();
   await mkdir(path.dirname(file), { recursive: true });
+  await snapshot();
   const tmp = `${file}.${process.pid}.tmp`;
   await writeFile(tmp, JSON.stringify({ version: 1, partners } satisfies FileShape, null, 2), "utf8");
   await rename(tmp, file);
 }
+
+export interface BackupInfo { name: string; at: string; count: number | null; size: number }
+
+/** Instantanés, du plus récent au plus ancien. count = null si le fichier est illisible. */
+export async function listBackups(): Promise<BackupInfo[]> {
+  const dir = backupsDir();
+  let names: string[];
+  try {
+    names = (await readdir(dir)).filter((n) => BACKUP_NAME.test(n)).sort().reverse();
+  } catch (e) {
+    if ((e as NodeJS.ErrnoException).code === "ENOENT") return [];
+    throw e;
+  }
+  return Promise.all(names.map(async (name) => {
+    const full = path.join(dir, name);
+    const [raw, st] = await Promise.all([readFile(full, "utf8").catch(() => ""), stat(full)]);
+    const parsed = StoredPartners.safeParse((() => { try { return JSON.parse(raw); } catch { return null; } })());
+    const m = /^partners-(\d{4})(\d{2})(\d{2})-(\d{2})(\d{2})(\d{2})-(\d{3})/.exec(name)!;
+    return { name, at: `${m[1]}-${m[2]}-${m[3]}T${m[4]}:${m[5]}:${m[6]}.${m[7]}Z`, count: parsed.success ? parsed.data.partners.length : null, size: st.size };
+  }));
+}
+
+/** Contenu brut d'un instantané (nom vérifié : aucun chemin accepté). */
+export async function readBackup(name: string): Promise<string | null> {
+  if (!BACKUP_NAME.test(name)) return null;
+  return readFile(path.join(backupsDir(), name), "utf8").catch(() => null);
+}
+
+export type ReplaceResult = { ok: true; count: number } | { ok: false; reason: string };
+
+/** Remplace toutes les fiches par un contenu validé. L'état actuel est d'abord sauvegardé (save → snapshot). */
+function replaceAll(data: unknown): Promise<ReplaceResult> {
+  const parsed = StoredPartners.safeParse(data);
+  if (!parsed.success) return Promise.resolve({ ok: false, reason: parsed.error.issues.map((i) => `${i.path.join(".")} : ${i.message}`).slice(0, 3).join(" · ") });
+  return serial(async () => {
+    await save(parsed.data.partners as Partner[]);
+    return { ok: true as const, count: parsed.data.partners.length };
+  });
+}
+
+export async function restoreBackup(name: string): Promise<ReplaceResult> {
+  const raw = await readBackup(name);
+  if (raw === null) return { ok: false, reason: "Sauvegarde introuvable." };
+  try { return await replaceAll(JSON.parse(raw)); } catch { return { ok: false, reason: "Sauvegarde illisible." }; }
+}
+
+/** Import d'un fichier exporté ({ partners: [...] }) : remplace tout, après validation. */
+export const importPartners = (data: unknown) => replaceAll(data);
 
 // Les écritures passent l'une après l'autre : pas de perte si deux requêtes arrivent ensemble.
 let queue: Promise<unknown> = Promise.resolve();

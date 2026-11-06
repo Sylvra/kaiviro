@@ -103,6 +103,22 @@ export type PartnerInput = z.infer<typeof PartnerInput>;
 export const PartnerPatch = z.object(fields).partial().refine((p) => Object.keys(p).length > 0, "Aucune modification");
 export type PartnerPatch = z.infer<typeof PartnerPatch>;
 
+/** Fichier complet (stockage, sauvegarde, import) : validé avant tout remplacement. */
+export const StoredPartners = z.object({
+  version: z.literal(1).optional(),
+  partners: z.array(z.object({
+    id: z.string().min(1).max(64),
+    ref: z.string().regex(/^[GOT]-\d{2,}$/),
+    type: z.enum(["garage", "obd", "beta"]),
+    ...fields,
+    due: fields.due.optional(),
+    createdAt: z.string(),
+    updatedAt: z.string(),
+    events: z.array(z.object({ id: z.string(), at: z.string(), kind: z.enum(["created", "stage", "due", "edit", "appel", "email", "rdv", "note"]), text: z.string().max(1000) })).optional(),
+  })).refine((l) => new Set(l.map((p) => p.id)).size === l.length, "Identifiants en double")
+    .refine((l) => new Set(l.map((p) => p.ref)).size === l.length, "Références en double"),
+});
+
 export type DueState = "overdue" | "today" | "soon" | "later" | "none";
 
 /** Position d'une relance par rapport à aujourd'hui (dates AAAA-MM-JJ). « soon » : dans les 7 jours. */
