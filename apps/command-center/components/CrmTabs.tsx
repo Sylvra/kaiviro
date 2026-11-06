@@ -6,6 +6,7 @@ import { motion } from "motion/react";
 import { cx } from "./ui";
 
 const TABS = [
+  { href: "/crm/apercu", label: "Vue d’ensemble", dot: "bg-ink" },
   { href: "/crm/tableau", label: "Tableau", dot: "bg-coral-dot" },
   { href: "/crm/planning", label: "Planning", dot: "bg-amber-dot" },
   { href: "/crm/equipe", label: "Équipe", dot: "bg-mint-dot" },

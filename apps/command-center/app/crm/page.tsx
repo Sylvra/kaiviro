@@ -1,2 +1,2 @@
 import { redirect } from "next/navigation";
-export default function Crm() { redirect("/crm/tableau"); }
+export default function Crm() { redirect("/crm/apercu"); }
