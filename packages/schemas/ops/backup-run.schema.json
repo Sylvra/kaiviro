@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "BackupRun",
+  "description": "Fichier d'état écrit par infrastructure/backups/backup.sh et restore-test.sh (source S6). Aucun chemin de secret, aucun mot de passe.",
+  "type": "object",
+  "required": ["id", "kind", "scope", "started_at", "finished_at", "result"],
+  "additionalProperties": false,
+  "properties": {
+    "id": { "type": "string", "maxLength": 64 },
+    "kind": { "type": "string", "enum": ["backup", "restore_test", "prune", "check"] },
+    "scope": {
+      "description": "Périmètre sauvegardé, voir BACKUP_AND_RESTORE §2.",
+      "type": "string",
+      "enum": ["pi-config", "pi-monitoring-data", "admin-db", "full"]
+    },
+    "started_at": { "type": "string", "format": "date-time" },
+    "finished_at": { "type": ["string", "null"], "format": "date-time" },
+    "result": { "type": "string", "enum": ["running", "succeeded", "failed", "partial"] },
+    "repository": {
+      "description": "Nom logique du dépôt de sauvegarde (local, offsite). Jamais d'URL avec identifiants.",
+      "type": "string",
+      "enum": ["local", "offsite"]
+    },
+    "snapshot_id": { "type": ["string", "null"], "maxLength": 64 },
+    "bytes_added": { "type": ["integer", "null"], "minimum": 0 },
+    "files_total": { "type": ["integer", "null"], "minimum": 0 },
+    "error": {
+      "description": "Message court, sans secret.",
+      "type": ["string", "null"],
+      "maxLength": 500
+    },
+    "restore_verified": {
+      "description": "Pour kind=restore_test : contrôle d'intégrité réussi après restauration.",
+      "type": ["boolean", "null"]
+    }
+  }
+}

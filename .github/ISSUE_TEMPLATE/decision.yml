@@ -1,0 +1,31 @@
+name: Décision à trancher
+description: Alimente l'écran Décisions du CRM. Une décision tranchée se transcrit en ADR.
+title: "[décision] "
+labels: ["decision"]
+body:
+  - type: textarea
+    id: context
+    attributes:
+      label: Contexte
+    validations:
+      required: true
+  - type: textarea
+    id: options
+    attributes:
+      label: Options (avantages, limites, coûts, risques)
+    validations:
+      required: true
+  - type: input
+    id: adr
+    attributes:
+      label: ADR liée
+      placeholder: ADR-00XX
+  - type: input
+    id: owner
+    attributes:
+      label: Responsable
+  - type: input
+    id: due
+    attributes:
+      label: À trancher avant
+      placeholder: AAAA-MM-JJ

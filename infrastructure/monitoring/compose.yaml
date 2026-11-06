@@ -1,0 +1,163 @@
+# KAIVIRO — pile de supervision de la Raspberry Pi 5.
+# Proposé par la mission A le 2026-11-05. À relire et appliquer par Johan uniquement.
+# Tags = dernières releases GitHub au 2026-11-05. Ajouter le digest @sha256 après vérification arm64.
+# Aucun port publié sur toutes les interfaces : tout est lié à ${BIND_ADDR} (IP VPN de la Pi).
+name: kaiviro-monitoring
+
+x-hardening: &hardening
+  restart: unless-stopped
+  security_opt:
+    - no-new-privileges:true
+  logging:
+    driver: json-file
+    options:
+      max-size: "10m"
+      max-file: "3"
+
+services:
+  # Étape 1 — disponibilité
+  uptime-kuma:
+    <<: *hardening
+    image: louislam/uptime-kuma:2.5.9
+    profiles: ["uptime"]
+    volumes:
+      - uptime_kuma_data:/app/data
+    ports:
+      - "${BIND_ADDR:?BIND_ADDR requis}:3001:3001"
+    networks: [kv_edge]
+    mem_limit: 512m
+    cpus: 1.0
+
+  # Étape 2 — métriques
+  node-exporter:
+    <<: *hardening
+    image: prom/node-exporter:v1.12.1
+    profiles: ["metrics"]
+    command:
+      - "--path.rootfs=/host"
+      - "--collector.textfile.directory=/host/var/lib/kaiviro/textfile"
+    pid: host
+    read_only: true
+    cap_drop: [ALL]
+    volumes:
+      - "/:/host:ro,rslave"
+    networks: [kv_monitoring]
+    mem_limit: 128m
+    cpus: 0.5
+
+  cadvisor:
+    <<: *hardening
+    image: gcr.io/cadvisor/cadvisor:v0.60.6
+    profiles: ["metrics"]
+    command:
+      - "--docker_only=true"
+      - "--housekeeping_interval=30s"
+    volumes:
+      - "/:/rootfs:ro"
+      - "/var/run:/var/run:ro"
+      - "/sys:/sys:ro"
+      - "/var/lib/docker/:/var/lib/docker:ro"
+    devices:
+      - /dev/kmsg
+    networks: [kv_monitoring]
+    mem_limit: 256m
+    cpus: 0.5
+
+  prometheus:
+    <<: *hardening
+    image: prom/prometheus:v3.15.1
+    profiles: ["metrics"]
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--storage.tsdb.retention.time=${PROMETHEUS_RETENTION:-15d}"
+    user: "65534:65534"
+    read_only: true
+    cap_drop: [ALL]
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    ports:
+      - "${BIND_ADDR:?BIND_ADDR requis}:9090:9090"
+    networks: [kv_monitoring, kv_edge]
+    mem_limit: 512m
+    cpus: 1.0
+
+  # Étape 3 — tableaux de bord
+  grafana:
+    <<: *hardening
+    image: grafana/grafana:13.3.0
+    profiles: ["dashboards"]
+    environment:
+      GF_SERVER_ROOT_URL: "${GRAFANA_ROOT_URL:-http://grafana.kaiviro.internal}"
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+      GF_SECURITY_ADMIN_USER: "${GRAFANA_ADMIN_USER:-kaiviro-admin}"
+      GF_SECURITY_ADMIN_PASSWORD__FILE: /run/secrets/grafana_admin_password
+    secrets:
+      - grafana_admin_password
+    volumes:
+      - grafana_data:/var/lib/grafana
+    ports:
+      - "${BIND_ADDR:?BIND_ADDR requis}:3000:3000"
+    networks: [kv_monitoring, kv_edge]
+    mem_limit: 384m
+    cpus: 1.0
+
+  # Étape 4 — journaux (collecteur à ajouter après validation du filtrage)
+  loki:
+    <<: *hardening
+    image: grafana/loki:3.7.9
+    profiles: ["logs"]
+    command: ["-config.file=/etc/loki/local-config.yaml"]
+    volumes:
+      - loki_data:/loki
+    networks: [kv_monitoring]
+    mem_limit: 512m
+    cpus: 1.0
+
+  # Étape 5 — alertes
+  ntfy:
+    <<: *hardening
+    image: binwiederhier/ntfy:v2.37.2
+    profiles: ["alerts"]
+    command: ["serve"]
+    environment:
+      NTFY_BASE_URL: "${NTFY_BASE_URL:-http://ntfy.kaiviro.internal}"
+      NTFY_AUTH_DEFAULT_ACCESS: "deny-all"
+      NTFY_AUTH_FILE: /var/lib/ntfy/user.db
+      NTFY_CACHE_FILE: /var/cache/ntfy/cache.db
+    volumes:
+      - ntfy_cache:/var/cache/ntfy
+      - ntfy_auth:/var/lib/ntfy
+    ports:
+      - "${BIND_ADDR:?BIND_ADDR requis}:8080:80"
+    networks: [kv_edge]
+    mem_limit: 128m
+    cpus: 0.5
+
+secrets:
+  grafana_admin_password:
+    # Fichier local root:root 0400, hors Git. Chemin dans .env.
+    file: "${GRAFANA_ADMIN_PASSWORD_FILE:-/opt/kaiviro/secrets/grafana_admin_password}"
+
+networks:
+  kv_monitoring:
+    internal: true
+    ipam:
+      config:
+        - subnet: 172.30.10.0/24
+  kv_edge:
+    ipam:
+      config:
+        - subnet: 172.30.20.0/24
+
+volumes:
+  uptime_kuma_data:
+  prometheus_data:
+  grafana_data:
+  loki_data:
+  ntfy_cache:
+  ntfy_auth:

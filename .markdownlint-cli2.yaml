@@ -1,0 +1,20 @@
+# KAIVIRO — règles markdownlint (mission A, 2026-11-05).
+config:
+  default: true
+  MD013: false          # longueur de ligne : tableaux et phrases longues acceptés
+  MD024:
+    siblings_only: true # titres identiques permis dans des sections différentes
+  MD025:
+    front_matter_title: "" # le title: de l'en-tête YAML ne compte pas comme H1
+  MD033: false          # HTML ponctuel autorisé (<br/> dans Mermaid)
+  MD041: false          # premier contenu = en-tête YAML, pas un titre
+  MD060: false          # alignement des tableaux non imposé
+ignores:
+  # Fichiers des humains, antérieurs à la mission A (matrice M0_PLAN §4) : non édités par A.
+  # Corrections proposées dans docs/roadmap/M0_ADMIN_REPORT.md §6. Retirer ces lignes une fois corrigés.
+  - "CLAUDE.md"
+  - "README.md"
+  - "docs/roadmap/M0_PLAN.md"
+  - "node_modules/**"
+  - "apps/command-center/vendor/**"
+  - ".claude/**/references/**"
