@@ -1,0 +1,10 @@
+node_modules/
+.next/
+out/
+coverage/
+next-env.d.ts
+*.tsbuildinfo
+.env*
+!.env.example
+# Données personnelles du CRM Partenaires (stockage local, CRM_SPEC §5.4) : jamais dans Git.
+data/
