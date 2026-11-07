@@ -42,8 +42,16 @@ Captures : [`captures/`](captures/) (12 vues desktop, 2 mobiles).
 | server-only | MIT | empêche d'importer le code serveur (jetons) côté navigateur |
 | @fontsource-variable/{bricolage-grotesque, dm-sans, jetbrains-mono} | OFL-1.1 | polices auto-hébergées, aucun appel à Google Fonts |
 | typescript, vitest, @testing-library/react, jsdom, @vitejs/plugin-react, @types/* | MIT / Apache-2.0 | contrôles |
+| three 0.187.0, @react-three/fiber 9.8.2, @react-three/drei 10.7.9 (+ @types/three) | MIT | agence 3D `/agency` (ADR-0014, COMMAND_CENTER_3D) ; ajoutées le 2026-11-07 à la demande de Johan ; chargées seulement sur `/agency` |
 
 Versions épinglées exactement dans `package.json`, `package-lock.json` commité.
+
+### Agence 3D (`/agency`, avancée de CC-M4 à la demande de Johan, 2026-11-07)
+
+- Plateau isométrique : 10 zones (Executive, Livrables, Décisions, Partenaires, Development Studio, Knowledge, Infrastructure · Pi, AI Lab, Automotive, Security), toutes construites depuis les mêmes sources que la 2D (`lib/agency.ts`, testé).
+- Règles de COMMAND_CENTER_3D respectées : données réelles uniquement, voyant « inconnu » gris sans source, rendu à la demande sans animation simulant une activité, paquet 3D séparé, repli 2D sans WebGL, liste accessible au clavier, `prefers-reduced-motion`, 3D désactivée par défaut sur mobile.
+- Journal (`lib/activity.ts`) : flux d'événements GitHub du dépôt + historique des partenaires.
+- Correctif au passage : `gh()` relance les erreurs internes de Next (`unstable_rethrow`) au lieu de les avaler, sinon certaines pages étaient figées au build.
 
 ## 4. Template
 
