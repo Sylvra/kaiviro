@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Plus } from "lucide-react";
+import { Box, Plus } from "lucide-react";
 import { SearchPalette } from "./SearchPalette";
 import { motion } from "motion/react";
 import { DEPARTMENTS } from "@/lib/data/ops";
@@ -42,6 +42,13 @@ export function Sidebar({ counts }: { counts: SidebarCounts }) {
           </Link>
         ))}
       </div>
+
+      <Link href="/agency" aria-current={path.startsWith("/agency") ? "page" : undefined}
+        className={cx("flex h-10 items-center gap-2.5 rounded-xl px-3 text-[13px] font-semibold transition-colors", path.startsWith("/agency") ? "bg-ink text-white" : "bg-white/75 text-ink hover:bg-white")}>
+        <Box size={15} aria-hidden />
+        <span className="flex-1">Agence 3D</span>
+        <span className={cx("rounded-full px-1.5 text-[10px] font-bold", path.startsWith("/agency") ? "bg-white/15" : "bg-ink text-white")}>3D</span>
+      </Link>
 
       <SearchPalette />
 

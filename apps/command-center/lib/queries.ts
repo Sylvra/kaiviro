@@ -1,8 +1,9 @@
 import "server-only";
 import { ADRS, DECISIONS, DELIVERABLES, PLAN_DAY, PLAN_SOURCE, type Adr, type AdrStatus, type Decision, type Deliverable, type Owner, type Status } from "./data/plan";
-import type { Partner } from "./partners";
+import { EVENT_LABEL, type Partner } from "./partners";
+import { mapRepoEvent, mergeLog, type LogEntry } from "./activity";
 import { readPartners } from "./sources/partners-store";
-import { compareBranch, getBranchHead, getRepo, listAdrFiles, listBranches, listIssues, listOpenPulls, readRaw, type GhComment, type GhIssue } from "./sources/github";
+import { compareBranch, getBranchHead, getRepo, listRepoEvents, listAdrFiles, listBranches, listIssues, listOpenPulls, readRaw, type GhComment, type GhIssue } from "./sources/github";
 import { fromStatic, type Sourced } from "./sources/types";
 import { planDayAt, todayInParis, type PlanDay } from "./plan-day";
 
@@ -213,6 +214,21 @@ export function agentState(a: BranchActivity | undefined | null): AgentState {
   if (a.aheadBy === 0) return "empty";
   if (a.aheadBy === null) return "unknown";
   return "working";
+}
+
+/** Journal : flux GitHub du dépôt + historique des partenaires (référence et nom d'organisation seulement). */
+export async function getActivityLog(): Promise<Sourced<LogEntry[]>> {
+  const [events, partners] = await Promise.all([listRepoEvents(), readPartners().catch(() => null)]);
+  const gh = (events?.data ?? []).map(mapRepoEvent).filter((e): e is LogEntry => e !== null);
+  const local: LogEntry[] = (partners?.partners ?? []).flatMap((p) => (p.events ?? []).map((e) => ({
+    id: `p-${e.id}`, at: e.at, source: "Partenaires" as const, kind: EVENT_LABEL[e.kind], actor: p.owner, text: `${p.ref} ${p.name} · ${e.text}`,
+  })));
+  if (!events && !partners) return { value: null, source: "S1 · GitHub events + fichier local", fetchedAt: null, freshness: "unknown", demo: false };
+  return {
+    value: mergeLog([gh, local]),
+    source: events ? "S1 · GitHub events + fichier local" : "Fichier local (GitHub injoignable)",
+    fetchedAt: events?.fetchedAt ?? new Date().toISOString(), freshness: events ? "live" : "stale", demo: false,
+  };
 }
 
 export async function getOpenPullCount(): Promise<Sourced<number>> {

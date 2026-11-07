@@ -11,7 +11,8 @@ import { PARTNER_STAGES, StoredPartners, diffEvents, nextRef, type InteractionIn
  */
 interface FileShape { version: 1; partners: Partner[] }
 
-export const partnersFile = () => process.env.PARTNERS_FILE?.trim() || path.join(process.cwd(), "data", "partners.json");
+// turbopackIgnore : fichier de données lu à l'exécution, pas à inclure dans le traçage du build.
+export const partnersFile = () => process.env.PARTNERS_FILE?.trim() || path.join(/* turbopackIgnore: true */ process.cwd(), "data", "partners.json");
 
 export async function readPartners(): Promise<{ partners: Partner[]; exists: boolean }> {
   try {

@@ -20,6 +20,7 @@ export const KIND_LABEL: Record<SearchKind, string> = {
 };
 
 const PAGES: [string, string, string][] = [
+  ["Agence 3D", "Vue 3D de l’agence, supervision et journal", "/agency"],
   ["Vue d’ensemble", "Avancement, retards, décisions et branches", "/crm/apercu"],
   ["Tableau", "Kanban des livrables M0", "/crm/tableau"],
   ["Planning", "Gantt J1 → J10 et jalons", "/crm/planning"],

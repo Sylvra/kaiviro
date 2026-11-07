@@ -1,4 +1,6 @@
 import "server-only";
+import { unstable_rethrow } from "next/navigation";
+import type { GhRepoEvent } from "@/lib/activity";
 
 /**
  * S1 / S2 — GitHub (lecture seule par défaut).
@@ -31,6 +33,8 @@ async function gh<T>(path: string, revalidate = 300): Promise<{ data: T; fetched
     }
     return { data: (await res.json()) as T, fetchedAt: new Date().toISOString() };
   } catch (e) {
+    // Les erreurs internes de Next (rendu dynamique, redirection) doivent remonter, sinon la page est figée au build.
+    unstable_rethrow(e);
     console.warn(`[S1] GitHub injoignable sur ${path.split("?")[0]} : ${(e as { cause?: { code?: string } }).cause?.code ?? (e as Error).message}`);
     return null;
   }
@@ -126,6 +130,11 @@ export async function getBranchHead(branch: string) {
 /** Commits d'avance d'une branche sur sa base. */
 export async function compareBranch(base: string, branch: string) {
   return gh<{ ahead_by: number; behind_by: number }>(`/repos/${process.env.GITHUB_REPO}/compare/${encodeURIComponent(base)}...${encodeURIComponent(branch)}`, 120);
+}
+
+/** Flux d'activité du dépôt (90 derniers jours côté GitHub), mis en cache une minute. */
+export async function listRepoEvents() {
+  return gh<GhRepoEvent[]>(`/repos/${process.env.GITHUB_REPO}/events?per_page=60`, 60);
 }
 
 export interface GhPull { number: number; title: string; html_url: string; head: { ref: string }; draft: boolean }
