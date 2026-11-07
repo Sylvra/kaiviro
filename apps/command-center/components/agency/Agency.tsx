@@ -2,8 +2,8 @@
 
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
-import { ArrowUpRight, Box, LayoutGrid, ScrollText, X } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ArrowUpRight, Box, LayoutGrid, List, Maximize2, Minimize2, PanelRight, ScrollText, X } from "lucide-react";
 import type { AgencyModel, ZoneId, ZoneState } from "@/lib/agency";
 import type { LogEntry } from "@/lib/activity";
 import { cx } from "../ui";
@@ -49,6 +49,13 @@ export function Agency({ model, log, logSource }: { model: AgencyModel; log: Log
   const [enabled, setEnabled] = useState(true);
   const [reducedMotion, setReducedMotion] = useState(false);
   const [lowPower, setLowPower] = useState(false);
+  // Plein écran : API du navigateur, sinon superposition fixe (cadre intégré, API refusée).
+  const root = useRef<HTMLElement>(null);
+  const [full, setFull] = useState(false);
+  const [pseudo, setPseudo] = useState(false);
+  const [showZones, setShowZones] = useState(true);
+  const [showDetails, setShowDetails] = useState(true);
+  const isFull = full || pseudo;
   const zone = useMemo(() => model.zones.find((z) => z.id === selected) ?? null, [model.zones, selected]);
   const counts = useMemo(() => {
     const c: Record<ZoneState, number> = { ok: 0, warn: 0, alert: 0, unknown: 0 };
@@ -83,11 +90,44 @@ export function Agency({ model, log, logSource }: { model: AgencyModel; log: Log
     setTab("zone");
   }
 
+  const toggleFull = useCallback(async () => {
+    if (document.fullscreenElement) { await document.exitFullscreen().catch(() => undefined); return; }
+    if (pseudo) { setPseudo(false); return; }
+    try {
+      await root.current?.requestFullscreen();
+    } catch {
+      setPseudo(true);
+    }
+  }, [pseudo]);
+
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setSelected(null); };
+    const onChange = () => setFull(document.fullscreenElement === root.current);
+    document.addEventListener("fullscreenchange", onChange);
+    return () => document.removeEventListener("fullscreenchange", onChange);
+  }, []);
+
+  // Superposition fixe : pas de défilement de la page derrière.
+  useEffect(() => {
+    if (!pseudo) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = prev; };
+  }, [pseudo]);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const typing = e.target instanceof HTMLElement && (e.target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(e.target.tagName));
+      if (e.key === "Escape") {
+        // En superposition, Échap sort d'abord du plein écran ; en vrai plein écran, le navigateur s'en charge.
+        if (pseudo) setPseudo(false); else setSelected(null);
+      } else if ((e.key === "f" || e.key === "F") && !typing && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        e.preventDefault();
+        void toggleFull();
+      }
+    };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, []);
+  }, [pseudo, toggleFull]);
 
   function listKey(e: React.KeyboardEvent<HTMLUListElement>) {
     if (!["ArrowDown", "ArrowUp"].includes(e.key)) return;
@@ -102,12 +142,13 @@ export function Agency({ model, log, logSource }: { model: AgencyModel; log: Log
   const show3d = enabled && gl === "ok";
 
   return (
-    <section aria-label="Agence virtuelle" className="flex min-h-[calc(100dvh-28px)] flex-col gap-3 p-4">
-      <header className="flex flex-wrap items-center gap-3">
-        <span className="grid size-10 place-items-center rounded-[12px] bg-ink text-white"><Box size={18} aria-hidden /></span>
-        <div className="flex min-w-[200px] flex-1 flex-col">
-          <h1 className="text-[22px] font-bold leading-tight tracking-[-0.02em]">Agence KAIVIRO</h1>
-          <span className="text-xs text-ink-3">Vue 3D sur les données réelles · un voyant gris signifie « aucune source », jamais « tout va bien »</span>
+    <section ref={root} aria-label="Agence virtuelle"
+      className={cx(isFull ? "fixed inset-0 z-50 bg-[#fbf9f5]" : "flex min-h-[calc(100dvh-28px)] flex-col gap-3 p-4")}>
+      <header className={cx("flex flex-wrap items-center gap-3", isFull && "absolute inset-x-3 top-3 z-[60] rounded-2xl border border-white/70 bg-white/80 p-2 pl-3 shadow-[var(--shadow-lift)] backdrop-blur-md")}>
+        <span className={cx("grid place-items-center rounded-[12px] bg-ink text-white", isFull ? "size-8" : "size-10")}><Box size={isFull ? 15 : 18} aria-hidden /></span>
+        <div className="flex min-w-[160px] flex-1 flex-col">
+          <h1 className={cx("font-bold leading-tight tracking-[-0.02em]", isFull ? "text-[17px]" : "text-[22px]")}>Agence KAIVIRO</h1>
+          {!isFull && <span className="text-xs text-ink-3">Vue 3D sur les données réelles · un voyant gris signifie « aucune source », jamais « tout va bien »</span>}
         </div>
         <div className="flex flex-wrap gap-1.5" aria-label="Synthèse des zones">
           {(["alert", "warn", "ok", "unknown"] as ZoneState[]).map((s) => (
@@ -120,12 +161,25 @@ export function Agency({ model, log, logSource }: { model: AgencyModel; log: Log
           className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-[#e5dfd6] bg-white px-3 text-[13px] font-semibold disabled:opacity-50">
           {enabled ? <LayoutGrid size={14} aria-hidden /> : <Box size={14} aria-hidden />}{enabled ? "Plan 2D" : "Vue 3D"}
         </button>
+        {isFull && (
+          <>
+            <button type="button" onClick={() => setShowZones((v) => !v)} aria-pressed={showZones} className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-[#e5dfd6] bg-white px-3 text-[13px] font-semibold"><List size={14} aria-hidden />Zones</button>
+            <button type="button" onClick={() => setShowDetails((v) => !v)} aria-pressed={showDetails} className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-[#e5dfd6] bg-white px-3 text-[13px] font-semibold"><PanelRight size={14} aria-hidden />Détails</button>
+          </>
+        )}
+        <button type="button" onClick={() => void toggleFull()} aria-pressed={isFull} aria-keyshortcuts="F" title={isFull ? "Quitter le plein écran (Échap)" : "Plein écran (F)"}
+          className="inline-flex h-9 items-center gap-1.5 rounded-xl bg-ink px-3 text-[13px] font-semibold text-white hover:bg-ink/90">
+          {isFull ? <Minimize2 size={14} aria-hidden /> : <Maximize2 size={14} aria-hidden />}{isFull ? "Quitter" : "Plein écran"}
+        </button>
       </header>
 
-      {/* Scène en pleine largeur au-dessus ; sur très grand écran : liste | scène | détails. */}
-      <div className="grid min-h-0 flex-1 grid-cols-1 gap-3 md:grid-cols-2 2xl:grid-cols-[230px_minmax(0,1fr)_340px]">
+      {/* Normal : scène en pleine largeur au-dessus (très grand écran : liste | scène | détails).
+          Plein écran : scène sur tout l'écran, liste et détails en panneaux flottants. */}
+      <div className={cx(isFull ? "absolute inset-0" : "grid min-h-0 flex-1 grid-cols-1 gap-3 md:grid-cols-2 2xl:grid-cols-[230px_minmax(0,1fr)_340px]")}>
         {/* Liste textuelle accessible des zones (§2.6), toujours présente */}
-        <nav aria-label="Zones de l’agence" className="order-2 flex flex-col gap-1 rounded-[var(--radius-panel)] border border-line bg-surface-2 p-2 2xl:order-1">
+        <nav aria-label="Zones de l’agence" hidden={isFull && !showZones}
+          className={cx("flex flex-col gap-1 rounded-[var(--radius-panel)] border p-2",
+            isFull ? "absolute left-3 top-[84px] z-50 max-h-[calc(100%-100px)] w-[250px] overflow-y-auto border-white/70 bg-white/85 shadow-[var(--shadow-lift)] backdrop-blur-md" : "order-2 border-line bg-surface-2 2xl:order-1")}>
           <span className="px-2 pb-1 pt-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-3">Zones · ↑ ↓ pour naviguer</span>
           <ul onKeyDown={listKey} className="flex flex-col gap-0.5">
             {model.zones.map((z) => (
@@ -144,12 +198,13 @@ export function Agency({ model, log, logSource }: { model: AgencyModel; log: Log
           </ul>
         </nav>
 
-        <div className="relative order-1 h-[min(68vh,640px)] min-h-[420px] overflow-hidden rounded-[var(--radius-panel)] border border-line bg-[#fbf9f5] md:col-span-2 2xl:order-2 2xl:col-span-1 2xl:h-auto">
+        <div className={cx("overflow-hidden bg-[#fbf9f5]",
+          isFull ? "absolute inset-0" : "relative order-1 h-[min(68vh,640px)] min-h-[420px] rounded-[var(--radius-panel)] border border-line md:col-span-2 2xl:order-2 2xl:col-span-1 2xl:h-auto")}>
           {show3d ? (
             <>
               <AgencyScene model={model} selected={selected} onSelect={select} reducedMotion={reducedMotion} lowPower={lowPower} />
-              <div className="pointer-events-none absolute bottom-3 left-3 flex flex-wrap gap-2 text-[11px] text-ink-3">
-                <span className="rounded-full bg-white/90 px-2 py-1">Glisser : tourner · Molette : zoom · Clic droit : déplacer · Échap : recentrer</span>
+              <div className={cx("pointer-events-none absolute bottom-3 flex flex-wrap gap-2 text-[11px] text-ink-3", isFull ? "left-1/2 -translate-x-1/2" : "left-3")}>
+                <span className="rounded-full bg-white/90 px-2 py-1">Glisser : tourner · Molette : zoom · Clic droit : déplacer · Échap : {isFull ? "quitter" : "recentrer"} · F : plein écran</span>
                 {reducedMotion && <span className="rounded-full bg-white/90 px-2 py-1">Mouvements réduits</span>}
               </div>
             </>
@@ -172,7 +227,9 @@ export function Agency({ model, log, logSource }: { model: AgencyModel; log: Log
           )}
         </div>
 
-        <aside aria-label="Détails" className="order-3 flex max-h-[640px] min-h-[320px] flex-col rounded-[var(--radius-panel)] border border-line bg-white">
+        <aside aria-label="Détails" hidden={isFull && !showDetails}
+          className={cx("flex flex-col rounded-[var(--radius-panel)] border",
+            isFull ? "absolute bottom-3 right-3 top-[84px] z-50 w-[min(360px,calc(100%-24px))] border-white/70 bg-white/90 shadow-[var(--shadow-lift)] backdrop-blur-md" : "order-3 max-h-[640px] min-h-[320px] border-line bg-white")}>
           <div role="tablist" className="flex gap-1 border-b border-line-soft p-1.5">
             {([["zone", "Zone", Box], ["journal", `Journal${log ? ` · ${log.length}` : ""}`, ScrollText]] as const).map(([id, label, Icon]) => (
               <button key={id} role="tab" type="button" aria-selected={tab === id} onClick={() => setTab(id)}

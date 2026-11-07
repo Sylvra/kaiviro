@@ -151,7 +151,7 @@ function Lanes({ model, onSelect }: { model: AgencyModel; onSelect: (id: ZoneId)
       {model.lanes.map((l, li) => (
         <group key={l.stage} position={[0, 0, (li - 1.5) * 0.95]}>
           <mesh position={[0, 0.02, 0]} receiveShadow><boxGeometry args={[4.2, 0.04, 0.7]} /><meshStandardMaterial color={["#f6f3ee", "#eef5fc", "#e9f7f1", "#fff6e3"][li]} /></mesh>
-          <Html position={[-2.45, 0.05, 0]} center distanceFactor={20} style={{ pointerEvents: "none" }}>
+          <Html position={[-2.45, 0.05, 0]} center distanceFactor={20} zIndexRange={[20, 0]} style={{ pointerEvents: "none" }}>
             <span className="whitespace-nowrap text-[9px] font-semibold text-[#8a837a]">{PARTNER_STAGES[l.stage]}</span>
           </Html>
           {l.partners.slice(0, 9).map((p, i) => <PartnerOrb key={p.ref} x={-1.6 + i * 0.42} alert={p.alert} label={`${p.ref} ${p.name}`} onClick={() => onSelect("partenaires")} />)}
@@ -225,7 +225,7 @@ function Rack({ model }: { model: AgencyModel }) {
           <mesh position={[0.5, 0, 0.02]}><sphereGeometry args={[0.06, 12, 8]} /><meshStandardMaterial color={s.connected ? C.mint : C.unknown} emissive={s.connected ? C.mint : "#000"} emissiveIntensity={s.connected ? 1 : 0} /></mesh>
         </group>
       ))}
-      <Html position={[1.4, 1.2, 0]} center distanceFactor={18} style={{ pointerEvents: "none" }}>
+      <Html position={[1.4, 1.2, 0]} center distanceFactor={18} zIndexRange={[20, 0]} style={{ pointerEvents: "none" }}>
         <div className="w-36 rounded-lg border border-[#e6dfd4] bg-white/95 p-1.5 text-[10px] leading-tight text-[#5f5952]">
           {model.services.map((s) => <div key={s.name} className="flex justify-between gap-2"><span className="truncate">{s.name}</span><span className="font-semibold">{s.connected ? "branché" : "inconnu"}</span></div>)}
         </div>
@@ -256,7 +256,7 @@ function DayRing({ model }: { model: AgencyModel }) {
             <RoundedBox args={[0.6, today ? 0.5 : 0.2, 0.6]} radius={0.05} castShadow>
               <meshStandardMaterial color={today ? C.coral : d.state === "past" ? "#bfe6d6" : "#ece7df"} emissive={today ? C.coral : "#000"} emissiveIntensity={today ? 0.35 : 0} />
             </RoundedBox>
-            <Html position={[0, today ? 0.45 : 0.25, 0]} center distanceFactor={20} style={{ pointerEvents: "none" }}>
+            <Html position={[0, today ? 0.45 : 0.25, 0]} center distanceFactor={20} zIndexRange={[20, 0]} style={{ pointerEvents: "none" }}>
               <span className={`text-[9px] font-bold ${today ? "text-[#a8432a]" : "text-[#8a837a]"}`}>J{d.n}</span>
             </Html>
           </group>
