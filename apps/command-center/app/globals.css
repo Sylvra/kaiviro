@@ -54,3 +54,25 @@
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
+
+/* Agence 3D : thème Ivoire (défaut) et thème Nuit « salle de contrôle » (DESIGN_SYSTEM §2.2), limités à /agency. */
+.agency { --agency-bg: #fbf9f5; }
+.agency[data-theme="nuit"] {
+  --agency-bg: #0b1017;
+  --color-ink: #e6ebf2; --color-ink-2: #b3bfcd; --color-ink-3: #8696a8;
+  --color-surface: #111822; --color-surface-2: #161f2b;
+  --color-line: #263243; --color-line-soft: #1d2836;
+  --color-mint-bg: #0e2a27; --color-mint-ink: #5ee0cc;
+  --color-amber-bg: #2e2410; --color-amber-ink: #f5c95a;
+  --color-coral-bg: #33190f; --color-coral-ink: #ff9a76;
+  --color-lav-bg: #1f1b3a; --color-lav-ink: #b5a8ff;
+  --color-sky-bg: #0f2333; --color-sky-ink: #7fc1f2;
+  color-scheme: dark;
+  color: var(--color-ink);
+}
+.agency[data-theme="nuit"] [class*="bg-white"] { background-color: rgb(20 28 39 / 0.9); }
+.agency[data-theme="nuit"] [class*="bg-[#fbf9f5]"] { background-color: #0b1017; }
+.agency[data-theme="nuit"] [class*="bg-[#efebe5]"] { background-color: #1f2a38; color: #a9b6c6; }
+.agency[data-theme="nuit"] [class*="border"] { border-color: var(--color-line); }
+.agency[data-theme="nuit"] .bg-ink { background-color: #2b3a4f; }
+.agency[data-theme="nuit"] .bg-accent { background-color: #0d9488; }

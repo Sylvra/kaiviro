@@ -31,6 +31,9 @@ export interface AgencyInput {
   openPulls: number | null;
   planDay: { current: number; total: number; over: boolean; overBy: number } | null;
   sources: SourceStatus[];
+  /** santé de l'hôte Pi (lib/infra hostHealth) et résumé, si S5 répond */
+  piHealth?: ZoneState;
+  piSummary?: string;
 }
 
 export interface AgencyModel {
@@ -86,8 +89,8 @@ export function buildAgency(d: AgencyInput): AgencyModel {
     zone("knowledge", "Knowledge Center", connected(d.sources, "S2") ? "ok" : "unknown",
       `${written.length} ADR écrite(s) sur ${d.adrs.length}`, [`${written.filter((a) => a.status === "ACCEPTED").length} acceptée(s)`, `${written.filter((a) => a.status === "PROPOSED").length} proposée(s)`],
       "/ops/knowledge", "S2 · docs/adr"),
-    zone("infra", "Infrastructure · Pi", connected(d.sources, "S5") ? "ok" : "unknown",
-      connected(d.sources, "S5") ? "Supervision branchée" : "Pi non supervisée : aucune métrique",
+    zone("infra", "Infrastructure · Pi", d.piHealth ?? (connected(d.sources, "S5") ? "ok" : "unknown"),
+      d.piSummary ?? (connected(d.sources, "S5") ? "Supervision branchée" : "Pi non supervisée : aucune métrique"),
       ["Uptime Kuma (S4), Node Exporter (S5), sauvegardes (S6) : non connectés", "Installation prévue J7–J9 par Johan"], "/ops/infrastructure", "S4 · S5 · S6"),
     zone("ai", "AI Laboratory", "unknown", "Aucune donnée avant M5", ["Indicateurs agrégés seulement, jamais le contenu des conversations"], "/ops/ai", "S7 · contrat de supervision"),
     zone("auto", "Automotive", "unknown", "Essais réels en M2", ["Aucune compatibilité ni règle inventée"], "/ops/automotive", "Mission B"),

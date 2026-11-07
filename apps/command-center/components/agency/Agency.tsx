@@ -3,9 +3,11 @@
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowUpRight, Box, LayoutGrid, List, Maximize2, Minimize2, PanelRight, ScrollText, X } from "lucide-react";
+import { ArrowUpRight, Box, LayoutGrid, List, Maximize2, Minimize2, Moon, PanelRight, ScrollText, Server, Sun, X } from "lucide-react";
 import type { AgencyModel, ZoneId, ZoneState } from "@/lib/agency";
 import type { LogEntry } from "@/lib/activity";
+import { hostHealth } from "@/lib/infra";
+import { PiPanel, type InfraView } from "./PiPanel";
 import { cx } from "../ui";
 
 // Code 3D dans un paquet séparé, chargé seulement sur /agency (COMMAND_CENTER_3D §2.4).
@@ -42,9 +44,40 @@ function webglAvailable(): boolean {
 
 const PREF = "kaiviro.agency3d";
 
-export function Agency({ model, log, logSource }: { model: AgencyModel; log: LogEntry[] | null; logSource: string }) {
+const THEME = "kaiviro.theme";
+
+export function Agency({ model, log, logSource, infra: initialInfra }: { model: AgencyModel; log: LogEntry[] | null; logSource: string; infra: InfraView }) {
   const [selected, setSelected] = useState<ZoneId | null>(null);
-  const [tab, setTab] = useState<"zone" | "journal">("zone");
+  const [tab, setTab] = useState<"zone" | "pi" | "journal">("zone");
+  const [theme, setTheme] = useState<"ivoire" | "nuit">("ivoire");
+  const [infra, setInfra] = useState(initialInfra);
+  const [refreshing, setRefreshing] = useState(false);
+  const anyInfra = infra.configured.prometheus || infra.configured.kuma || infra.configured.backup;
+
+  // Supervision de la Pi relue toutes les 15 s (seulement si une source est configurée et l'onglet visible).
+  useEffect(() => {
+    if (!anyInfra) return;
+    const tick = async () => {
+      if (document.visibilityState !== "visible") return;
+      setRefreshing(true);
+      const r = await fetch("/api/admin/v1/infra/snapshot").catch(() => null);
+      if (r?.ok) setInfra((await r.json()) as InfraView);
+      setRefreshing(false);
+    };
+    const id = window.setInterval(() => void tick(), 15_000);
+    return () => window.clearInterval(id);
+  }, [anyInfra]);
+
+  useEffect(() => {
+    try { const t = window.localStorage.getItem(THEME); if (t === "nuit" || t === "ivoire") setTheme(t); } catch { /* stockage indisponible */ }
+  }, []);
+  function toggleTheme() {
+    setTheme((t) => {
+      const next = t === "nuit" ? "ivoire" : "nuit";
+      try { window.localStorage.setItem(THEME, next); } catch { /* stockage indisponible */ }
+      return next;
+    });
+  }
   const [gl, setGl] = useState<"checking" | "ok" | "none">("checking");
   const [enabled, setEnabled] = useState(true);
   const [reducedMotion, setReducedMotion] = useState(false);
@@ -87,7 +120,7 @@ export function Agency({ model, log, logSource }: { model: AgencyModel; log: Log
 
   function select(id: ZoneId) {
     setSelected((cur) => (cur === id ? null : id));
-    setTab("zone");
+    setTab(id === "infra" ? "pi" : "zone");
   }
 
   const toggleFull = useCallback(async () => {
@@ -142,8 +175,8 @@ export function Agency({ model, log, logSource }: { model: AgencyModel; log: Log
   const show3d = enabled && gl === "ok";
 
   return (
-    <section ref={root} aria-label="Agence virtuelle"
-      className={cx(isFull ? "fixed inset-0 z-50 bg-[#fbf9f5]" : "flex min-h-[calc(100dvh-28px)] flex-col gap-3 p-4")}>
+    <section ref={root} aria-label="Agence virtuelle" data-theme={theme}
+      className={cx("agency", isFull ? "fixed inset-0 z-50 bg-[var(--agency-bg)]" : "flex min-h-[calc(100dvh-28px)] flex-col gap-3 rounded-[var(--radius-shell)] bg-[var(--agency-bg)] p-4")}>
       <header className={cx("flex flex-wrap items-center gap-3", isFull && "absolute inset-x-3 top-3 z-[60] rounded-2xl border border-white/70 bg-white/80 p-2 pl-3 shadow-[var(--shadow-lift)] backdrop-blur-md")}>
         <span className={cx("grid place-items-center rounded-[12px] bg-ink text-white", isFull ? "size-8" : "size-10")}><Box size={isFull ? 15 : 18} aria-hidden /></span>
         <div className="flex min-w-[160px] flex-1 flex-col">
@@ -157,6 +190,10 @@ export function Agency({ model, log, logSource }: { model: AgencyModel; log: Log
             </span>
           ))}
         </div>
+        <button type="button" onClick={toggleTheme} aria-pressed={theme === "nuit"} title="Changer de thème"
+          className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-[#e5dfd6] bg-white px-3 text-[13px] font-semibold">
+          {theme === "nuit" ? <Sun size={14} aria-hidden /> : <Moon size={14} aria-hidden />}{theme === "nuit" ? "Ivoire" : "Nuit"}
+        </button>
         <button type="button" onClick={toggle3d} aria-pressed={enabled} disabled={gl === "none"}
           className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-[#e5dfd6] bg-white px-3 text-[13px] font-semibold disabled:opacity-50">
           {enabled ? <LayoutGrid size={14} aria-hidden /> : <Box size={14} aria-hidden />}{enabled ? "Plan 2D" : "Vue 3D"}
@@ -202,7 +239,8 @@ export function Agency({ model, log, logSource }: { model: AgencyModel; log: Log
           isFull ? "absolute inset-0" : "relative order-1 h-[min(68vh,640px)] min-h-[420px] rounded-[var(--radius-panel)] border border-line md:col-span-2 2xl:order-2 2xl:col-span-1 2xl:h-auto")}>
           {show3d ? (
             <>
-              <AgencyScene model={model} selected={selected} onSelect={select} reducedMotion={reducedMotion} lowPower={lowPower} />
+              <AgencyScene model={model} selected={selected} onSelect={select} reducedMotion={reducedMotion} lowPower={lowPower} theme={theme}
+                pi={{ health: hostHealth(infra.host.value), temp: infra.host.value?.temp ?? null, containers: infra.containers.value?.map((c) => ({ name: c.name, up: c.up })) ?? null }} />
               <div className={cx("pointer-events-none absolute bottom-3 flex flex-wrap gap-2 text-[11px] text-ink-3", isFull ? "left-1/2 -translate-x-1/2" : "left-3")}>
                 <span className="rounded-full bg-white/90 px-2 py-1">Glisser : tourner · Molette : zoom · Clic droit : déplacer · Échap : {isFull ? "quitter" : "recentrer"} · F : plein écran</span>
                 {reducedMotion && <span className="rounded-full bg-white/90 px-2 py-1">Mouvements réduits</span>}
@@ -231,7 +269,7 @@ export function Agency({ model, log, logSource }: { model: AgencyModel; log: Log
           className={cx("flex flex-col rounded-[var(--radius-panel)] border",
             isFull ? "absolute bottom-3 right-3 top-[84px] z-50 w-[min(360px,calc(100%-24px))] border-white/70 bg-white/90 shadow-[var(--shadow-lift)] backdrop-blur-md" : "order-3 max-h-[640px] min-h-[320px] border-line bg-white")}>
           <div role="tablist" className="flex gap-1 border-b border-line-soft p-1.5">
-            {([["zone", "Zone", Box], ["journal", `Journal${log ? ` · ${log.length}` : ""}`, ScrollText]] as const).map(([id, label, Icon]) => (
+            {([["zone", "Zone", Box], ["pi", "Raspberry", Server], ["journal", `Journal${log ? ` · ${log.length}` : ""}`, ScrollText]] as const).map(([id, label, Icon]) => (
               <button key={id} role="tab" type="button" aria-selected={tab === id} onClick={() => setTab(id)}
                 className={cx("inline-flex h-8 flex-1 items-center justify-center gap-1.5 rounded-lg text-[13px] font-semibold", tab === id ? "bg-ink text-white" : "text-ink-3 hover:bg-surface-2")}>
                 <Icon size={14} aria-hidden />{label}
@@ -261,6 +299,7 @@ export function Agency({ model, log, logSource }: { model: AgencyModel; log: Log
                 <Link href={zone.href} className="inline-flex h-9 w-fit items-center gap-1.5 rounded-xl bg-accent px-3.5 text-[13px] font-semibold text-white hover:bg-accent-hover">Ouvrir la vue détaillée <ArrowUpRight size={14} aria-hidden /></Link>
               </div>
             )}
+            {tab === "pi" && <PiPanel infra={infra} refreshing={refreshing} />}
             {tab === "journal" && (
               <div className="flex flex-col gap-2">
                 <span className="text-xs text-ink-3">Source : {logSource}</span>

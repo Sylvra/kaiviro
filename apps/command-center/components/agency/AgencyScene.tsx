@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { Canvas, useFrame, useThree, type ThreeEvent } from "@react-three/fiber";
 import { ContactShadows, Html, OrbitControls, RoundedBox } from "@react-three/drei";
 import * as THREE from "three";
@@ -24,13 +24,25 @@ const STATE_COLOR: Record<ZoneState, string> = { ok: C.ok, warn: C.warn, alert: 
 const STATE_LABEL: Record<ZoneState, string> = { ok: "OK", warn: "Attention", alert: "Alerte", unknown: "Inconnu" };
 const ADR_COLOR: Record<string, string> = { ACCEPTED: C.mint, PROPOSED: C.lav, OPEN: C.amber, REJECTED: C.coral, SUPERSEDED: C.unknown, NOT_WRITTEN: "#ece7df" };
 
+interface PiState { health: ZoneState; temp: number | null; containers: { name: string; up: boolean }[] | null }
+
 interface Props {
   model: AgencyModel;
   selected: ZoneId | null;
   onSelect: (id: ZoneId) => void;
   reducedMotion: boolean;
   lowPower: boolean;
+  theme: "ivoire" | "nuit";
+  pi: PiState;
 }
+
+/** Palette de la scène selon le thème (les couleurs d'état restent les mêmes). */
+const PALETTES = {
+  ivoire: { bg: "#fbf9f5", floor: "#fbf8f2", slab: "#ffffff", slabSel: "#fffaf2", building: "#f1ece4", window: "#d8d1c6", sky: "#ffffff", ground: "#efe8dc", hemi: 2.1, glow: 0.9, night: false },
+  nuit: { bg: "#0b1017", floor: "#101722", slab: "#18212e", slabSel: "#1f2b3b", building: "#1c2634", window: "#3b82f6", sky: "#9fb7d4", ground: "#0b1017", hemi: 1.1, glow: 1.8, night: true },
+} as const;
+type Palette = (typeof PALETTES)[keyof typeof PALETTES];
+const Pal = createContext<Palette>(PALETTES.ivoire);
 
 /** Infobulle DOM accrochée à un objet 3D (polices et contrastes de l'application). */
 function Tip({ children, y = 1 }: { children: React.ReactNode; y?: number }) {
@@ -58,6 +70,7 @@ function useHover() {
 /** Socle d'une zone : dalle, voyant d'état, étiquette, sélection au clic. */
 function ZoneBase({ zone, selected, onSelect, size = [5.2, 4.4], children }: { zone: Zone; selected: boolean; onSelect: (id: ZoneId) => void; size?: [number, number]; children?: React.ReactNode }) {
   const { hover, bind } = useHover();
+  const P = useContext(Pal);
   const color = STATE_COLOR[zone.state];
   const lift = selected ? 0.12 : hover ? 0.06 : 0;
   // drei <Html> + React 19 : le tout premier rendu d'une étiquette peut se perdre ; on la remonte une fois après l'affichage.
@@ -68,7 +81,7 @@ function ZoneBase({ zone, selected, onSelect, size = [5.2, 4.4], children }: { z
     <group position={[zone.at[0], lift, zone.at[1]]}>
       <RoundedBox args={[size[0], 0.3, size[1]]} radius={0.12} smoothness={3} castShadow receiveShadow position={[0, 0.15, 0]}
         {...bind} onClick={(e) => { e.stopPropagation(); onSelect(zone.id); }}>
-        <meshStandardMaterial color={selected ? "#fffaf2" : C.slab} roughness={0.85} />
+        <meshStandardMaterial color={selected ? P.slabSel : P.slab} roughness={0.85} />
       </RoundedBox>
       {/* liseré de couleur d'état sur le bord avant */}
       <mesh position={[0, 0.31, size[1] / 2 - 0.08]}>
@@ -80,11 +93,11 @@ function ZoneBase({ zone, selected, onSelect, size = [5.2, 4.4], children }: { z
         <mesh position={[0, 0.35, 0]} castShadow><cylinderGeometry args={[0.05, 0.05, 0.7, 12]} /><meshStandardMaterial color={C.ink} /></mesh>
         <mesh position={[0, 0.8, 0]}>
           <sphereGeometry args={[0.18, 24, 16]} />
-          <meshStandardMaterial color={color} emissive={zone.state === "unknown" ? "#000000" : color} emissiveIntensity={zone.state === "unknown" ? 0 : 0.9} roughness={0.4} />
+          <meshStandardMaterial color={color} emissive={zone.state === "unknown" ? "#000000" : color} emissiveIntensity={zone.state === "unknown" ? 0 : P.glow} roughness={0.4} />
         </mesh>
       </group>
       <Html key={ready ? "label" : "label-init"} position={[0, 0.32, size[1] / 2 + 0.35]} center distanceFactor={16} zIndexRange={[20, 0]} style={{ pointerEvents: "none" }}>
-        <div className={`flex items-center gap-1.5 whitespace-nowrap rounded-full border px-2.5 py-1 text-[12px] font-semibold shadow-sm ${selected ? "border-[#0f766e] bg-[#0f766e] text-white" : "border-[#e6dfd4] bg-white/95 text-[#1d1b19]"}`}>
+        <div className={`flex items-center gap-1.5 whitespace-nowrap rounded-full border px-2.5 py-1 text-[12px] font-semibold shadow-sm ${selected ? "border-[#0f766e] bg-[#0f766e] text-white" : P.night ? "border-[#2a3a4e] bg-[#121a25]/95 text-[#e6ebf2]" : "border-[#e6dfd4] bg-white/95 text-[#1d1b19]"}`}>
           <span className="inline-block size-2 rounded-full" style={{ background: color, opacity: zone.state === "unknown" ? 0.6 : 1 }} />
           {zone.label}
           <span className={selected ? "text-white/75" : "text-[#8a837a]"}>· {STATE_LABEL[zone.state]}</span>
@@ -214,31 +227,44 @@ function Book({ x, z, id, status, onClick }: { x: number; z: number; id: string;
   );
 }
 
-/** Baie de la Pi : un emplacement par source de supervision (S4–S7), gris tant qu'elle n'est pas branchée. */
-function Rack({ model }: { model: AgencyModel }) {
+/**
+ * Baie de la Pi : un emplacement par conteneur réel (cAdvisor) ; sans données, un par source de supervision (S4–S7), gris.
+ * Le liseré de la baie prend la couleur de santé de l'hôte (température, disque, mémoire).
+ */
+function Rack({ model, pi }: { model: AgencyModel; pi: PiState }) {
+  const P = useContext(Pal);
+  const slots = pi.containers?.length
+    ? pi.containers.slice(0, 8).map((c) => ({ key: c.name, label: c.name, color: c.up ? C.mint : C.coral, lit: true }))
+    : model.services.map((s) => ({ key: s.name, label: s.name, color: s.connected ? C.mint : C.unknown, lit: s.connected }));
+  const h = Math.max(2.4, 0.4 + slots.length * 0.34);
+  const health = STATE_COLOR[pi.health];
   return (
     <group position={[-0.6, 0, 0]}>
-      <RoundedBox args={[1.6, 2.4, 1.2]} radius={0.08} position={[0, 1.2, 0]} castShadow><meshStandardMaterial color="#2c2a27" roughness={0.6} /></RoundedBox>
-      {model.services.map((s, i) => (
-        <group key={s.name} position={[0, 2.0 - i * 0.48, 0.61]}>
-          <mesh><boxGeometry args={[1.3, 0.3, 0.02]} /><meshStandardMaterial color="#3d3a36" /></mesh>
-          <mesh position={[0.5, 0, 0.02]}><sphereGeometry args={[0.06, 12, 8]} /><meshStandardMaterial color={s.connected ? C.mint : C.unknown} emissive={s.connected ? C.mint : "#000"} emissiveIntensity={s.connected ? 1 : 0} /></mesh>
+      <RoundedBox args={[1.6, h, 1.2]} radius={0.08} position={[0, h / 2, 0]} castShadow><meshStandardMaterial color={P.night ? "#0d131b" : "#2c2a27"} roughness={0.55} metalness={0.2} /></RoundedBox>
+      <mesh position={[0, h / 2, 0.605]}><boxGeometry args={[1.62, h, 0.01]} /><meshStandardMaterial color={health} emissive={pi.health === "unknown" ? "#000" : health} emissiveIntensity={pi.health === "unknown" ? 0 : 0.35 * P.glow} transparent opacity={0.18} /></mesh>
+      {slots.map((s, i) => (
+        <group key={s.key} position={[0, h - 0.35 - i * 0.34, 0.62]}>
+          <mesh><boxGeometry args={[1.3, 0.24, 0.02]} /><meshStandardMaterial color={P.night ? "#1a2432" : "#3d3a36"} /></mesh>
+          <mesh position={[0.5, 0, 0.02]}><sphereGeometry args={[0.055, 12, 8]} /><meshStandardMaterial color={s.color} emissive={s.lit ? s.color : "#000"} emissiveIntensity={s.lit ? P.glow : 0} /></mesh>
         </group>
       ))}
-      <Html position={[1.4, 1.2, 0]} center distanceFactor={18} zIndexRange={[20, 0]} style={{ pointerEvents: "none" }}>
-        <div className="w-36 rounded-lg border border-[#e6dfd4] bg-white/95 p-1.5 text-[10px] leading-tight text-[#5f5952]">
-          {model.services.map((s) => <div key={s.name} className="flex justify-between gap-2"><span className="truncate">{s.name}</span><span className="font-semibold">{s.connected ? "branché" : "inconnu"}</span></div>)}
+      <Html position={[1.5, h / 2, 0]} center distanceFactor={18} zIndexRange={[20, 0]} style={{ pointerEvents: "none" }}>
+        <div className={`w-40 rounded-lg border p-1.5 text-[10px] leading-tight ${P.night ? "border-[#2a3a4e] bg-[#121a25]/95 text-[#b3bfcd]" : "border-[#e6dfd4] bg-white/95 text-[#5f5952]"}`}>
+          <div className="mb-0.5 flex justify-between font-semibold"><span>Raspberry Pi 5</span><span>{pi.temp === null ? "— °C" : `${Math.round(pi.temp)} °C`}</span></div>
+          {slots.map((s) => <div key={s.key} className="flex justify-between gap-2"><span className="truncate">{s.label}</span><span className="font-semibold">{pi.containers?.length ? (s.color === C.mint ? "actif" : "arrêté") : s.lit ? "branché" : "inconnu"}</span></div>)}
         </div>
       </Html>
     </group>
   );
 }
 
-function Building({ h = 1.6, color = "#f1ece4" }: { h?: number; color?: string }) {
+function Building({ h = 1.6 }: { h?: number }) {
+  const P = useContext(Pal);
   return (
     <group>
-      <RoundedBox args={[2.6, h, 2]} radius={0.1} position={[-0.4, h / 2, 0]} castShadow><meshStandardMaterial color={color} roughness={0.9} /></RoundedBox>
-      {[0, 1, 2].map((i) => <mesh key={i} position={[-1.2 + i * 0.8, h * 0.6, 1.01]}><boxGeometry args={[0.45, 0.4, 0.02]} /><meshStandardMaterial color="#d8d1c6" /></mesh>)}
+      <RoundedBox args={[2.6, h, 2]} radius={0.1} position={[-0.4, h / 2, 0]} castShadow><meshStandardMaterial color={P.building} roughness={0.9} /></RoundedBox>
+      {/* fenêtres éteintes : aucune donnée, aucune activité simulée */}
+      {[0, 1, 2].map((i) => <mesh key={i} position={[-1.2 + i * 0.8, h * 0.6, 1.01]}><boxGeometry args={[0.45, 0.4, 0.02]} /><meshStandardMaterial color={P.night ? "#26323f" : P.window} /></mesh>)}
     </group>
   );
 }
@@ -302,7 +328,8 @@ function CameraRig({ target, reducedMotion }: { target: [number, number] | null;
   return null;
 }
 
-export default function AgencyScene({ model, selected, onSelect, reducedMotion, lowPower }: Props) {
+export default function AgencyScene({ model, selected, onSelect, reducedMotion, lowPower, theme, pi }: Props) {
+  const P = PALETTES[theme];
   const byId = useMemo(() => Object.fromEntries(model.zones.map((z) => [z.id, z])) as Record<ZoneId, Zone>, [model.zones]);
   const target = selected ? byId[selected].at : null;
   const z = (id: ZoneId, size: [number, number], children: React.ReactNode) =>
@@ -312,15 +339,17 @@ export default function AgencyScene({ model, selected, onSelect, reducedMotion, 
     // flat : pas de correction de tons, pour garder les pastels de l'identité KAIVIRO.
     <Canvas flat frameloop="demand" dpr={lowPower ? 1 : [1, 2]} shadows={lowPower ? false : "percentage"} camera={{ position: [21, 23, 26], fov: 32, near: 0.5, far: 220 }}
       gl={{ antialias: true, powerPreference: lowPower ? "low-power" : "high-performance" }} aria-hidden>
-      <color attach="background" args={["#fbf9f5"]} />
+      <Pal.Provider value={P}>
+      <color attach="background" args={[P.bg]} />
+      {P.night && <fog attach="fog" args={[P.bg, 38, 70]} />}
       {/* Intensités physiques (three ≥ r155) : valeurs hautes pour un rendu clair et pastel. */}
-      <hemisphereLight args={["#ffffff", "#efe8dc", 2.1]} />
+      <hemisphereLight args={[P.sky, P.ground, P.hemi]} />
       <ambientLight intensity={0.5} />
       <directionalLight position={[12, 20, 8]} intensity={1.6} castShadow={!lowPower} shadow-mapSize={[1024, 1024]} shadow-bias={-0.0004}
         shadow-camera-left={-20} shadow-camera-right={20} shadow-camera-top={20} shadow-camera-bottom={-20} />
 
       <RoundedBox args={[32, 0.5, 26]} radius={0.4} smoothness={4} position={[0.5, -0.25, 0.5]} receiveShadow>
-        <meshStandardMaterial color={C.floor} roughness={1} />
+        <meshStandardMaterial color={P.floor} roughness={1} />
       </RoundedBox>
       {!lowPower && <ContactShadows position={[0, 0.02, 0]} opacity={0.12} scale={34} blur={3} far={3} frames={1} />}
 
@@ -330,14 +359,15 @@ export default function AgencyScene({ model, selected, onSelect, reducedMotion, 
       {z("partenaires", [5.6, 4.6], <Lanes model={model} onSelect={onSelect} />)}
       {z("dev", [4.8, 3.4], <Pillars model={model} onSelect={onSelect} />)}
       {z("knowledge", [4.8, 3.8], <Books model={model} onSelect={onSelect} />)}
-      {z("infra", [4.8, 3.6], <Rack model={model} />)}
+      {z("infra", [4.8, 3.6], <Rack model={model} pi={pi} />)}
       {z("ai", [4, 3.2], <Building />)}
       {z("auto", [4, 3.2], <Building h={1.2} />)}
-      {z("security", [3.6, 3.2], <Building h={1.9} color="#ede8e0" />)}
+      {z("security", [3.6, 3.2], <Building h={1.9} />)}
 
       <OrbitControls makeDefault enableDamping={!reducedMotion} dampingFactor={0.12} minDistance={10} maxDistance={60}
         maxPolarAngle={Math.PI / 2.35} minPolarAngle={0.35} target={[0, 0, 0]} />
       <CameraRig target={target} reducedMotion={reducedMotion} />
+      </Pal.Provider>
     </Canvas>
   );
 }
