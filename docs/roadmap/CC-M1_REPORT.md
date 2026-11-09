@@ -109,7 +109,19 @@ Après fusion de `develop` (M0 mission A, PR #2), quatre écarts corrigés :
 
 Contrôles : `tsc --noEmit` OK ; `vitest` 12 fichiers, 80 tests OK (17 nouveaux : adaptateurs, conservation, audit) ; `validate_contracts.py` 0 erreur (méta-validation et OpenAPI complète en CI).
 
-## 10. Backlog proposé
+## 10. Agence 3D : maquette d'architecte (2026-11-09)
+
+Refonte de `/agency` à la demande de Johan (direction « maquette d'architecte » choisie parmi trois).
+
+- **Scène** : socle de maquette bicolore, quadrillage, allées vers le hub, lumière de studio (`Environment` + `Lightformer` locaux, aucun fichier distant), ombres douces (`SoftShadows`, `ContactShadows`), bâtiments distincts (coupole AI Lab, atelier voûté Automotive, tour Security), parcelles qui se soulèvent au survol et à la sélection.
+- **Données réelles uniquement** : fenêtres allumées seulement si la zone a une mesure ; sans GitHub, Livrables et Décisions passent en « inconnu » avec la source « plan de référence » (avant : « OK » sur la foi du plan). Chaque zone porte des indicateurs et une répartition calculés sur les mêmes entrées (`lib/agency.ts`).
+- **Caméra** : `CameraControls`, vol vers la zone choisie, décalage focal pour cadrer la maquette entre les panneaux, `R` pour recentrer ; instantané sous `prefers-reduced-motion`.
+- **Interface** : scène plein cadre, en-tête avec synthèse, barre d'outils (thème Ivoire/Nuit, 3D/Plan, recentrer, panneau, plein écran), liste des zones repliable, panneau Ensemble / Zone / Raspberry / Journal, infobulle unique qui suit le pointeur. Mobile : plan 2D par défaut, panneau en feuille du bas.
+- **Robustesse** : plus de montage/démontage de `<Html>` au survol (erreurs React 19 « removeChild ») ; contenu du panneau visible même onglet masqué (pas d'attente d'animation de sortie). Rendu à la demande : 0 image calculée au repos.
+
+Contrôles : `tsc` OK ; `vitest` 82 tests OK ; `next build` OK ; parcours Playwright 1440 px (Ivoire, Nuit, sélection de 4 zones, recentrage) et 390 px ; **0 erreur console en production**. Les erreurs « unmount » restantes n'apparaissent qu'en développement (double montage StrictMode de drei `<Html>`).
+
+## 11. Backlog proposé
 
 - **CC-M1 (suite)** : labels GitHub + création des issues livrables ; écriture du statut (niveau 2) derrière l'auth ; recherche globale ; tests axe et E2E.
 - **CC-M2** : S4 Uptime Kuma, S5 Prometheus/Node Exporter, S6 journal de sauvegarde, S7 contrat de supervision ; alertes.
