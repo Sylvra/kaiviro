@@ -35,6 +35,8 @@ export default async function Page() {
     openPulls: pulls.value,
     planDay: planDay.value,
     sources,
+    deliverablesLive: deliv.freshness === "live",
+    decisionsLive: decisions.freshness === "live",
     piHealth: h ? hostHealth(h) : undefined,
     piSummary: h ? `CPU ${h.cpu === null ? "—" : Math.round(h.cpu * 100) + " %"} · ${h.temp === null ? "— °C" : Math.round(h.temp) + " °C"} · ${infra.containers.value?.filter((c) => c.up).length ?? "?"} conteneur(s) actif(s)` : undefined,
   });

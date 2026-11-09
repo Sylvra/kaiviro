@@ -10,6 +10,12 @@ import { planSlice } from "@/lib/overview";
 export type ZoneState = "ok" | "warn" | "alert" | "unknown";
 export type ZoneId = "overview" | "livrables" | "decisions" | "partenaires" | "dev" | "knowledge" | "infra" | "ai" | "auto" | "security";
 
+/** Indicateur chiffré d'une zone. `value` vaut « — » si la source ne répond pas. */
+export interface Kpi { label: string; value: string }
+export type Tone = "mint" | "amber" | "lav" | "coral" | "sky" | "neutral";
+/** Segment de répartition (barre empilée) : uniquement des comptes réels. */
+export interface Segment { label: string; count: number; tone: Tone }
+
 export interface Zone {
   id: ZoneId;
   label: string;
@@ -18,6 +24,8 @@ export interface Zone {
   details: string[];
   href: string;
   source: string;
+  kpis: Kpi[];
+  breakdown: Segment[];
   /** position sur le plateau, en unités de scène (x, z) */
   at: [number, number];
 }
@@ -34,6 +42,12 @@ export interface AgencyInput {
   /** santé de l'hôte Pi (lib/infra hostHealth) et résumé, si S5 répond */
   piHealth?: ZoneState;
   piSummary?: string;
+  /**
+   * false si les livrables / décisions viennent du document de référence (GitHub non connecté) :
+   * la zone reste « inconnu », jamais « OK » sur la foi d'un plan.
+   */
+  deliverablesLive?: boolean;
+  decisionsLive?: boolean;
 }
 
 export interface AgencyModel {
@@ -65,19 +79,30 @@ export function buildAgency(d: AgencyInput): AgencyModel {
   const written = d.adrs.filter((a) => a.status !== "NOT_WRITTEN" && a.status !== "OPEN");
 
   const zone = (id: ZoneId, label: string, state: ZoneState, summary: string, details: string[], href: string, source: string): Zone =>
-    ({ id, label, state, summary, details, href, source, at: POS[id] });
+    ({ id, label, state, summary, details, href, source, at: POS[id], kpis: [], breakdown: [] });
+
+  // Comptes réels réutilisés par plusieurs zones.
+  const byStatus = (s: Status) => d.deliverables.filter((x) => x.status === s).length;
+  const statusSegments: Segment[] = [
+    { label: "Terminés", count: byStatus(3), tone: "mint" },
+    { label: "En revue", count: byStatus(2), tone: "lav" },
+    { label: "En cours", count: byStatus(1), tone: "amber" },
+    { label: "À faire", count: byStatus(0), tone: "neutral" },
+  ];
+  const dash = (v: number | null | undefined) => (v === null || v === undefined ? "—" : String(v));
 
   const zones: Zone[] = [
     zone("overview", "Executive", slice.late.length ? "warn" : d.planDay ? "ok" : "unknown",
       d.planDay ? `J${d.planDay.current} sur ${d.planDay.total} · ${done}/${d.deliverables.length} terminés` : "Jour du plan inconnu",
       [`${slice.late.length} livrable(s) en retard`, `${slice.today.length} prévu(s) aujourd’hui`, slice.milestone ? `Jalon : ${slice.milestone.label}` : "Aucun jalon à venir"],
       "/crm/apercu", "Plan M0 + S1"),
-    zone("livrables", "Livrables M0", slice.late.length ? "warn" : "ok",
-      `${done}/${d.deliverables.length} terminés · ${slice.late.length} en retard`,
-      [`${d.deliverables.filter((x) => x.status === 2).length} en revue`, `${d.deliverables.filter((x) => x.status === 1).length} en cours`, `${d.deliverables.filter((x) => x.status === 0).length} à faire`],
-      "/crm/tableau", "S1 · issues « livrable »"),
-    zone("decisions", "Décisions", openDecisions.length ? "warn" : "ok",
-      `${openDecisions.length} à trancher`, openDecisions.slice(0, 4).map((x) => `${x.title} (${x.ref})`), "/crm/decisions", "S1 · issues « decision »"),
+    zone("livrables", "Livrables M0", d.deliverablesLive === false ? "unknown" : slice.late.length ? "warn" : "ok",
+      `${done}/${d.deliverables.length} terminés · ${slice.late.length} en retard${d.deliverablesLive === false ? " (plan de référence)" : ""}`,
+      slice.late.length ? slice.late.slice(0, 5).map((x) => `En retard : ${x.title}`) : ["Aucun livrable en retard"],
+      "/crm/tableau", d.deliverablesLive === false ? "Plan M0 de référence · GitHub (S1) non connecté" : "S1 · issues « livrable »"),
+    zone("decisions", "Décisions", d.decisionsLive === false ? "unknown" : openDecisions.length ? "warn" : "ok",
+      `${openDecisions.length} à trancher${d.decisionsLive === false ? " (liste de référence)" : ""}`, openDecisions.slice(0, 4).map((x) => `${x.title} (${x.ref})`), "/crm/decisions",
+      d.decisionsLive === false ? "CRM_SPEC §5.5 de référence · GitHub (S1) non connecté" : "S1 · issues « decision »"),
     zone("partenaires", "Partenaires", d.partners === null ? "unknown" : overdue ? "alert" : today ? "warn" : "ok",
       d.partners === null ? "Fichier local illisible" : `${d.partners.length} fiche(s) · ${overdue} relance(s) en retard`,
       d.partners === null ? [] : [`${today} relance(s) aujourd’hui`, `${d.partners.filter((p) => p.stage === 2).length} partenaire(s) actif(s)`],
@@ -97,6 +122,73 @@ export function buildAgency(d: AgencyInput): AgencyModel {
     zone("security", "Security & Incidents", "unknown", "Audit et incidents en CC-M3", ["Journal d’audit non branché (S8)"], "/ops/security", "S8 · audit"),
   ];
 
+  // Indicateurs et répartitions : chaque valeur vient des mêmes entrées que le résumé, « — » si la source manque.
+  const extra: Partial<Record<ZoneId, Pick<Zone, "kpis" | "breakdown">>> = {
+    overview: {
+      kpis: [
+        { label: "Jour du plan", value: d.planDay ? `J${d.planDay.current}/${d.planDay.total}` : "—" },
+        { label: "Terminés", value: `${done}/${d.deliverables.length}` },
+        { label: "En retard", value: String(slice.late.length) },
+      ],
+      breakdown: statusSegments,
+    },
+    livrables: {
+      kpis: [
+        { label: "Terminés", value: `${done}/${d.deliverables.length}` },
+        { label: "En revue", value: String(byStatus(2)) },
+        { label: "En retard", value: String(slice.late.length) },
+      ],
+      breakdown: statusSegments,
+    },
+    decisions: {
+      kpis: [
+        { label: "À trancher", value: String(openDecisions.length) },
+        { label: "Tranchées", value: String(d.decisions.length - openDecisions.length) },
+      ],
+      breakdown: [
+        { label: "À trancher", count: openDecisions.length, tone: "coral" },
+        { label: "Tranchées", count: d.decisions.length - openDecisions.length, tone: "mint" },
+      ],
+    },
+    partenaires: {
+      kpis: [
+        { label: "Fiches", value: dash(d.partners?.length) },
+        { label: "Actifs", value: dash(d.partners?.filter((p) => p.stage === 2).length) },
+        { label: "Relances en retard", value: dash(d.partners === null ? null : overdue) },
+      ],
+      breakdown: d.partners === null ? [] : ([0, 1, 2, 3, 4] as const).map((s) => ({
+        label: ["À contacter", "En discussion", "Actifs", "En pause", "Clos"][s]!,
+        count: d.partners!.filter((p) => p.stage === s).length,
+        tone: (["neutral", "sky", "mint", "amber", "neutral"] as const)[s],
+      })),
+    },
+    dev: {
+      kpis: [
+        { label: "PR ouvertes", value: s1 ? dash(d.openPulls) : "—" },
+        { label: "Branches de mission", value: d.branches ? String(d.branches.filter((b) => b.exists).length) : "—" },
+      ],
+      breakdown: [],
+    },
+    knowledge: {
+      kpis: [
+        { label: "ADR écrites", value: `${written.length}/${d.adrs.length}` },
+        { label: "Acceptées", value: String(written.filter((a) => a.status === "ACCEPTED").length) },
+        { label: "Proposées", value: String(written.filter((a) => a.status === "PROPOSED").length) },
+      ],
+      breakdown: [
+        { label: "Acceptées", count: d.adrs.filter((a) => a.status === "ACCEPTED").length, tone: "mint" },
+        { label: "Proposées", count: d.adrs.filter((a) => a.status === "PROPOSED").length, tone: "lav" },
+        { label: "Ouvertes", count: d.adrs.filter((a) => a.status === "OPEN").length, tone: "amber" },
+        { label: "À rédiger", count: d.adrs.filter((a) => a.status === "NOT_WRITTEN").length, tone: "neutral" },
+      ],
+    },
+    infra: {
+      kpis: [{ label: "Sources de supervision", value: `${["S4", "S5", "S6"].filter((id) => connected(d.sources, id)).length}/3` }],
+      breakdown: [],
+    },
+  };
+  for (const z of zones) Object.assign(z, extra[z.id] ?? {});
+
   return {
     zones,
     towers: (["C", "A", "B"] as const).map((owner) => ({
@@ -104,7 +196,7 @@ export function buildAgency(d: AgencyInput): AgencyModel {
       blocks: d.deliverables.filter((x) => x.owner === owner).sort((a, b) => b.status - a.status || a.days[0] - b.days[0]).map((x) => ({ id: x.id, title: x.title, status: x.status, url: x.url })),
     })),
     beacons: d.decisions.map((x) => ({ key: x.key, title: x.title, resolved: x.resolved })),
-    lanes: ([0, 1, 2, 3] as const).map((stage) => ({ stage, partners: (d.partners ?? []).filter((p) => p.stage === stage).map((p) => ({ ref: p.ref, name: p.name, alert: p.overdue })) })),
+    lanes: ([0, 1, 2, 3, 4] as const).map((stage) => ({ stage, partners: (d.partners ?? []).filter((p) => p.stage === stage).map((p) => ({ ref: p.ref, name: p.name, alert: p.overdue })) })),
     pillars: (d.branches ?? []).map((b) => ({ branch: b.branch, exists: b.exists, pull: b.pull, height: b.exists ? Math.min(4, 0.4 + (b.aheadBy ?? 0) * 0.15) : 0.15 })),
     books: d.adrs.map((a) => ({ id: a.id, status: a.status })),
     days: Array.from({ length: d.planDay?.total ?? 10 }, (_, i) => ({

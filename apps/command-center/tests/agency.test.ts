@@ -38,3 +38,20 @@ describe("agence 3D", () => {
     expect(m.services.every((s) => !s.connected)).toBe(true);
   });
 });
+
+describe("agence : données de référence", () => {
+  it("ne montre jamais OK sur la foi d'un plan quand GitHub ne répond pas", () => {
+    const m = buildAgency({ ...input, deliverablesLive: false, decisionsLive: false });
+    const z = Object.fromEntries(m.zones.map((x) => [x.id, x]));
+    expect(z.livrables?.state).toBe("unknown");
+    expect(z.livrables?.source).toContain("non connecté");
+    expect(z.decisions?.state).toBe("unknown");
+  });
+  it("donne des indicateurs et une répartition qui somment aux livrables réels", () => {
+    const m = buildAgency(input);
+    const l = m.zones.find((x) => x.id === "livrables")!;
+    expect(l.breakdown.reduce((s, x) => s + x.count, 0)).toBe(input.deliverables.length);
+    expect(l.kpis[0]?.value).toBe(`${input.deliverables.filter((x) => x.status === 3).length}/${input.deliverables.length}`);
+    expect(m.zones.find((x) => x.id === "ai")?.kpis).toEqual([]);
+  });
+});
