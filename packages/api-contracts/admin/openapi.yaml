@@ -23,24 +23,24 @@ info:
     name: À définir (ADR-0001, dépôt privé)
     identifier: LicenseRef-KAIVIRO-Private
 servers:
-- url: https://admin.kaiviro.invalid/admin/v1
-  description: Placeholder. Aucun domaine réservé (ADR-0013). Accès VPN uniquement (ADR-0012).
+  - url: https://admin.kaiviro.invalid/admin/v1
+    description: Placeholder. Aucun domaine réservé (ADR-0013). Accès VPN uniquement (ADR-0012).
 security:
-- adminSession: []
+  - adminSession: []
 tags:
-- name: sources
-- name: overview
-- name: crm
-- name: infra
-- name: backups
-- name: incidents
-- name: audit
-- name: development
+  - name: sources
+  - name: overview
+  - name: crm
+  - name: infra
+  - name: backups
+  - name: incidents
+  - name: audit
+  - name: development
 paths:
   /sources:
     get:
       tags:
-      - sources
+        - sources
       operationId: listSources
       summary: État des sources S1 à S9
       x-kaiviro-min-role: viewer
@@ -53,9 +53,9 @@ paths:
               schema:
                 type: object
                 required:
-                - items
-                - connected
-                - total
+                  - items
+                  - connected
+                  - total
                 properties:
                   connected:
                     type: integer
@@ -72,7 +72,7 @@ paths:
   /overview:
     get:
       tags:
-      - overview
+        - overview
       operationId: getOverview
       summary: Vue de synthèse (Executive Overview)
       x-kaiviro-min-role: viewer
@@ -84,56 +84,56 @@ paths:
             application/json:
               schema:
                 allOf:
-                - $ref: ../../schemas/ops/freshness.schema.json
-                - type: object
-                  required:
-                  - data
-                  properties:
-                    data:
-                      oneOf:
-                      - type: object
-                        properties:
-                          services:
-                            type: array
-                            items:
-                              $ref: ../../schemas/ops/service-health.schema.json
-                          last_backup:
-                            oneOf:
-                            - $ref: ../../schemas/ops/backup-run.schema.json
-                            - type: 'null'
-                          last_deployment:
-                            oneOf:
-                            - $ref: ../../schemas/ops/deployment.schema.json
-                            - type: 'null'
-                          open_incidents:
-                            type:
-                            - integer
-                            - 'null'
-                            minimum: 0
-                        required:
-                        - services
-                      - type: 'null'
-                      description: null si la donnée est inconnue (voir unknown_reason).
+                  - $ref: ../../schemas/ops/freshness.schema.json
+                  - type: object
+                    required:
+                      - data
+                    properties:
+                      data:
+                        oneOf:
+                          - type: object
+                            properties:
+                              services:
+                                type: array
+                                items:
+                                  $ref: ../../schemas/ops/service-health.schema.json
+                              last_backup:
+                                oneOf:
+                                  - $ref: ../../schemas/ops/backup-run.schema.json
+                                  - type: 'null'
+                              last_deployment:
+                                oneOf:
+                                  - $ref: ../../schemas/ops/deployment.schema.json
+                                  - type: 'null'
+                              open_incidents:
+                                type:
+                                  - integer
+                                  - 'null'
+                                minimum: 0
+                            required:
+                              - services
+                          - type: 'null'
+                        description: null si la donnée est inconnue (voir unknown_reason).
         '401':
           $ref: '#/components/responses/Unauthorized'
   /deliverables:
     get:
       tags:
-      - crm
+        - crm
       operationId: listDeliverables
       summary: Livrables (issues GitHub) par mission
       x-kaiviro-min-role: viewer
       x-kaiviro-level: 1
       parameters:
-      - name: mission
-        in: query
-        schema:
-          type: string
-          enum:
-          - commun
-          - a
-          - b
-          - humains
+        - name: mission
+          in: query
+          schema:
+            type: string
+            enum:
+              - commun
+              - a
+              - b
+              - humains
       responses:
         '200':
           description: Liste paginée.
@@ -141,27 +141,27 @@ paths:
             application/json:
               schema:
                 allOf:
-                - $ref: ../../schemas/ops/freshness.schema.json
-                - type: object
-                  required:
-                  - data
-                  properties:
-                    data:
-                      oneOf:
-                      - type: array
-                        items:
-                          $ref: '#/components/schemas/Deliverable'
-                      - type: 'null'
-                      description: null si la donnée est inconnue (voir unknown_reason).
-                    next_cursor:
-                      type:
-                      - string
-                      - 'null'
+                  - $ref: ../../schemas/ops/freshness.schema.json
+                  - type: object
+                    required:
+                      - data
+                    properties:
+                      data:
+                        oneOf:
+                          - type: array
+                            items:
+                              $ref: '#/components/schemas/Deliverable'
+                          - type: 'null'
+                        description: null si la donnée est inconnue (voir unknown_reason).
+                      next_cursor:
+                        type:
+                          - string
+                          - 'null'
         '401':
           $ref: '#/components/responses/Unauthorized'
     post:
       tags:
-      - crm
+        - crm
       operationId: createDeliverable
       summary: Créer un livrable (issue « livrable », statut todo)
       x-kaiviro-min-role: developer
@@ -173,11 +173,11 @@ paths:
             schema:
               type: object
               required:
-              - title
-              - mission
-              - type
-              - days
-              - reason
+                - title
+                - mission
+                - type
+                - days
+                - reason
               additionalProperties: false
               properties:
                 title:
@@ -187,9 +187,9 @@ paths:
                 mission:
                   type: string
                   enum:
-                  - commun
-                  - a
-                  - b
+                    - commun
+                    - a
+                    - b
                 type:
                   type: string
                   minLength: 2
@@ -217,26 +217,26 @@ paths:
             application/json:
               schema:
                 allOf:
-                - $ref: ../../schemas/ops/freshness.schema.json
-                - type: object
-                  required:
-                  - data
-                  properties:
-                    data:
-                      oneOf:
-                      - $ref: '#/components/schemas/Deliverable'
-                      - type: 'null'
-                      description: null si la donnée est inconnue (voir unknown_reason).
+                  - $ref: ../../schemas/ops/freshness.schema.json
+                  - type: object
+                    required:
+                      - data
+                    properties:
+                      data:
+                        oneOf:
+                          - $ref: '#/components/schemas/Deliverable'
+                          - type: 'null'
+                        description: null si la donnée est inconnue (voir unknown_reason).
         '400': &id003
           $ref: '#/components/responses/ValidationError'
         '403': &id004
           $ref: '#/components/responses/Forbidden'
   /deliverables/{id}:
     parameters:
-    - $ref: '#/components/parameters/Id'
+      - $ref: '#/components/parameters/Id'
     get:
       tags:
-      - crm
+        - crm
       operationId: getDeliverable
       summary: 'Fiche d''un livrable : notes et commentaires GitHub'
       x-kaiviro-min-role: viewer
@@ -248,56 +248,56 @@ paths:
             application/json:
               schema:
                 allOf:
-                - $ref: ../../schemas/ops/freshness.schema.json
-                - type: object
-                  required:
-                  - data
-                  properties:
-                    data:
-                      oneOf:
-                      - type: object
-                        required:
-                        - deliverable
-                        - notes
-                        - comments
-                        - commentsKnown
-                        properties:
-                          deliverable:
-                            $ref: '#/components/schemas/Deliverable'
-                          notes:
-                            type: string
-                          comments:
-                            type: array
-                            items:
-                              type: object
-                              required:
-                              - id
-                              - author
-                              - body
-                              - at
-                              - url
-                              properties:
-                                id:
-                                  type: integer
-                                author:
-                                  type: string
-                                body:
-                                  type: string
-                                at:
-                                  type: string
-                                  format: date-time
-                                url:
-                                  type: string
-                                  format: uri
-                          commentsKnown:
-                            type: boolean
-                      - type: 'null'
-                      description: null si la donnée est inconnue (voir unknown_reason).
+                  - $ref: ../../schemas/ops/freshness.schema.json
+                  - type: object
+                    required:
+                      - data
+                    properties:
+                      data:
+                        oneOf:
+                          - type: object
+                            required:
+                              - deliverable
+                              - notes
+                              - comments
+                              - commentsKnown
+                            properties:
+                              deliverable:
+                                $ref: '#/components/schemas/Deliverable'
+                              notes:
+                                type: string
+                              comments:
+                                type: array
+                                items:
+                                  type: object
+                                  required:
+                                    - id
+                                    - author
+                                    - body
+                                    - at
+                                    - url
+                                  properties:
+                                    id:
+                                      type: integer
+                                    author:
+                                      type: string
+                                    body:
+                                      type: string
+                                    at:
+                                      type: string
+                                      format: date-time
+                                    url:
+                                      type: string
+                                      format: uri
+                              commentsKnown:
+                                type: boolean
+                          - type: 'null'
+                        description: null si la donnée est inconnue (voir unknown_reason).
         '404':
           $ref: '#/components/responses/NotFound'
     patch:
       tags:
-      - crm
+        - crm
       operationId: updateDeliverable
       summary: Modifier un livrable (statut, titre, mission, type, jours, chemin) dans GitHub
       x-kaiviro-min-role: developer
@@ -309,17 +309,17 @@ paths:
             schema:
               type: object
               required:
-              - reason
+                - reason
               minProperties: 2
               additionalProperties: false
               properties:
                 status:
                   type: string
                   enum:
-                  - todo
-                  - in_progress
-                  - in_review
-                  - done
+                    - todo
+                    - in_progress
+                    - in_review
+                    - done
                 title:
                   type: string
                   minLength: 3
@@ -327,9 +327,9 @@ paths:
                 mission:
                   type: string
                   enum:
-                  - commun
-                  - a
-                  - b
+                    - commun
+                    - a
+                    - b
                 type:
                   type: string
                   minLength: 2
@@ -347,16 +347,16 @@ paths:
             application/json:
               schema:
                 allOf:
-                - $ref: ../../schemas/ops/freshness.schema.json
-                - type: object
-                  required:
-                  - data
-                  properties:
-                    data:
-                      oneOf:
-                      - $ref: '#/components/schemas/Deliverable'
-                      - type: 'null'
-                      description: null si la donnée est inconnue (voir unknown_reason).
+                  - $ref: ../../schemas/ops/freshness.schema.json
+                  - type: object
+                    required:
+                      - data
+                    properties:
+                      data:
+                        oneOf:
+                          - $ref: '#/components/schemas/Deliverable'
+                          - type: 'null'
+                        description: null si la donnée est inconnue (voir unknown_reason).
         '400': *id003
         '403': *id004
         '404':
@@ -366,7 +366,7 @@ paths:
   /decisions:
     get:
       tags:
-      - crm
+        - crm
       operationId: listDecisions
       summary: Décisions ouvertes et tranchées
       x-kaiviro-min-role: viewer
@@ -378,24 +378,24 @@ paths:
             application/json:
               schema:
                 allOf:
-                - $ref: ../../schemas/ops/freshness.schema.json
-                - type: object
-                  required:
-                  - data
-                  properties:
-                    data:
-                      oneOf:
-                      - type: array
-                        items:
-                          $ref: '#/components/schemas/Decision'
-                      - type: 'null'
-                      description: null si la donnée est inconnue (voir unknown_reason).
+                  - $ref: ../../schemas/ops/freshness.schema.json
+                  - type: object
+                    required:
+                      - data
+                    properties:
+                      data:
+                        oneOf:
+                          - type: array
+                            items:
+                              $ref: '#/components/schemas/Decision'
+                          - type: 'null'
+                        description: null si la donnée est inconnue (voir unknown_reason).
         '401':
           $ref: '#/components/responses/Unauthorized'
   /partners:
     get:
       tags:
-      - crm
+        - crm
       operationId: listPartners
       x-kaiviro-min-role: administrator
       x-kaiviro-level: 1
@@ -406,25 +406,25 @@ paths:
             application/json:
               schema:
                 allOf:
-                - $ref: ../../schemas/ops/freshness.schema.json
-                - type: object
-                  required:
-                  - data
-                  properties:
-                    data:
-                      oneOf:
-                      - type: array
-                        items:
-                          $ref: '#/components/schemas/Partner'
-                      - type: 'null'
-                      description: null si la donnée est inconnue (voir unknown_reason).
+                  - $ref: ../../schemas/ops/freshness.schema.json
+                  - type: object
+                    required:
+                      - data
+                    properties:
+                      data:
+                        oneOf:
+                          - type: array
+                            items:
+                              $ref: '#/components/schemas/Partner'
+                          - type: 'null'
+                        description: null si la donnée est inconnue (voir unknown_reason).
         '401':
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
     post:
       tags:
-      - crm
+        - crm
       operationId: createPartner
       x-kaiviro-min-role: administrator
       x-kaiviro-level: 2
@@ -441,24 +441,24 @@ paths:
             application/json:
               schema:
                 allOf:
-                - $ref: ../../schemas/ops/freshness.schema.json
-                - type: object
-                  required:
-                  - data
-                  properties:
-                    data:
-                      oneOf:
-                      - $ref: '#/components/schemas/Partner'
-                      - type: 'null'
-                      description: null si la donnée est inconnue (voir unknown_reason).
+                  - $ref: ../../schemas/ops/freshness.schema.json
+                  - type: object
+                    required:
+                      - data
+                    properties:
+                      data:
+                        oneOf:
+                          - $ref: '#/components/schemas/Partner'
+                          - type: 'null'
+                        description: null si la donnée est inconnue (voir unknown_reason).
         '400': *id003
         '403': *id004
   /partners/{id}:
     parameters:
-    - $ref: '#/components/parameters/Id'
+      - $ref: '#/components/parameters/Id'
     get:
       tags:
-      - crm
+        - crm
       operationId: getPartner
       x-kaiviro-min-role: administrator
       x-kaiviro-level: 1
@@ -469,21 +469,21 @@ paths:
             application/json:
               schema:
                 allOf:
-                - $ref: ../../schemas/ops/freshness.schema.json
-                - type: object
-                  required:
-                  - data
-                  properties:
-                    data:
-                      oneOf:
-                      - $ref: '#/components/schemas/Partner'
-                      - type: 'null'
-                      description: null si la donnée est inconnue (voir unknown_reason).
+                  - $ref: ../../schemas/ops/freshness.schema.json
+                  - type: object
+                    required:
+                      - data
+                    properties:
+                      data:
+                        oneOf:
+                          - $ref: '#/components/schemas/Partner'
+                          - type: 'null'
+                        description: null si la donnée est inconnue (voir unknown_reason).
         '404':
           $ref: '#/components/responses/NotFound'
     patch:
       tags:
-      - crm
+        - crm
       operationId: updatePartner
       x-kaiviro-min-role: administrator
       x-kaiviro-level: 2
@@ -500,23 +500,23 @@ paths:
             application/json:
               schema:
                 allOf:
-                - $ref: ../../schemas/ops/freshness.schema.json
-                - type: object
-                  required:
-                  - data
-                  properties:
-                    data:
-                      oneOf:
-                      - $ref: '#/components/schemas/Partner'
-                      - type: 'null'
-                      description: null si la donnée est inconnue (voir unknown_reason).
+                  - $ref: ../../schemas/ops/freshness.schema.json
+                  - type: object
+                    required:
+                      - data
+                    properties:
+                      data:
+                        oneOf:
+                          - $ref: '#/components/schemas/Partner'
+                          - type: 'null'
+                        description: null si la donnée est inconnue (voir unknown_reason).
         '403':
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
     delete:
       tags:
-      - crm
+        - crm
       operationId: deletePartner
       summary: Suppression (niveau 3, confirmation renforcée, journalisée)
       x-kaiviro-min-role: owner
@@ -538,8 +538,8 @@ paths:
             schema:
               type: object
               required:
-              - confirm
-              - reason
+                - confirm
+                - reason
               additionalProperties: false
               properties:
                 confirm:
@@ -549,7 +549,7 @@ paths:
   /infra/pi:
     get:
       tags:
-      - infra
+        - infra
       operationId: getPiStatus
       summary: CPU, RAM, température, disque, uptime, throttling de la Pi
       x-kaiviro-min-role: viewer
@@ -561,27 +561,27 @@ paths:
             application/json:
               schema:
                 allOf:
-                - $ref: ../../schemas/ops/freshness.schema.json
-                - type: object
-                  required:
-                  - data
-                  properties:
-                    data:
-                      oneOf:
-                      - type: object
-                        properties:
-                          metrics:
-                            type: array
-                            items:
-                              $ref: ../../schemas/ops/metric.schema.json
-                        required:
-                        - metrics
-                      - type: 'null'
-                      description: null si la donnée est inconnue (voir unknown_reason).
+                  - $ref: ../../schemas/ops/freshness.schema.json
+                  - type: object
+                    required:
+                      - data
+                    properties:
+                      data:
+                        oneOf:
+                          - type: object
+                            properties:
+                              metrics:
+                                type: array
+                                items:
+                                  $ref: ../../schemas/ops/metric.schema.json
+                            required:
+                              - metrics
+                          - type: 'null'
+                        description: null si la donnée est inconnue (voir unknown_reason).
   /infra/containers:
     get:
       tags:
-      - infra
+        - infra
       operationId: listContainers
       x-kaiviro-min-role: viewer
       x-kaiviro-level: 1
@@ -592,42 +592,42 @@ paths:
             application/json:
               schema:
                 allOf:
-                - $ref: ../../schemas/ops/freshness.schema.json
-                - type: object
-                  required:
-                  - data
-                  properties:
-                    data:
-                      oneOf:
-                      - type: array
-                        items:
-                          $ref: '#/components/schemas/Container'
-                      - type: 'null'
-                      description: null si la donnée est inconnue (voir unknown_reason).
+                  - $ref: ../../schemas/ops/freshness.schema.json
+                  - type: object
+                    required:
+                      - data
+                    properties:
+                      data:
+                        oneOf:
+                          - type: array
+                            items:
+                              $ref: '#/components/schemas/Container'
+                          - type: 'null'
+                        description: null si la donnée est inconnue (voir unknown_reason).
   /infra/containers/{name}/restart:
     post:
       tags:
-      - infra
+        - infra
       operationId: restartContainer
       summary: Redémarrer un conteneur de la liste blanche
       x-kaiviro-min-role: administrator
       x-kaiviro-level: 2
       parameters:
-      - name: name
-        in: path
-        required: true
-        schema:
-          type: string
-          enum:
-          - uptime-kuma
-          - prometheus
-          - node-exporter
-          - grafana
-          - cadvisor
-          - loki
-      - $ref: '#/components/parameters/Confirmation'
-      - $ref: '#/components/parameters/Reason'
-      - $ref: '#/components/parameters/IdempotencyKey'
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+            enum:
+              - uptime-kuma
+              - prometheus
+              - node-exporter
+              - grafana
+              - cadvisor
+              - loki
+        - $ref: '#/components/parameters/Confirmation'
+        - $ref: '#/components/parameters/Reason'
+        - $ref: '#/components/parameters/IdempotencyKey'
       responses:
         '202':
           description: Action acceptée.
@@ -636,8 +636,8 @@ paths:
               schema:
                 type: object
                 required:
-                - action_id
-                - status
+                  - action_id
+                  - status
                 properties:
                   action_id:
                     type: string
@@ -645,16 +645,16 @@ paths:
                   status:
                     type: string
                     enum:
-                    - queued
-                    - running
-                    - succeeded
-                    - failed
+                      - queued
+                      - running
+                      - succeeded
+                      - failed
         '403':
           $ref: '#/components/responses/Forbidden'
   /backups:
     get:
       tags:
-      - backups
+        - backups
       operationId: listBackupRuns
       x-kaiviro-min-role: viewer
       x-kaiviro-level: 1
@@ -665,35 +665,35 @@ paths:
             application/json:
               schema:
                 allOf:
-                - $ref: ../../schemas/ops/freshness.schema.json
-                - type: object
-                  required:
-                  - data
-                  properties:
-                    data:
-                      oneOf:
-                      - type: array
-                        items:
-                          $ref: ../../schemas/ops/backup-run.schema.json
-                      - type: 'null'
-                      description: null si la donnée est inconnue (voir unknown_reason).
+                  - $ref: ../../schemas/ops/freshness.schema.json
+                  - type: object
+                    required:
+                      - data
+                    properties:
+                      data:
+                        oneOf:
+                          - type: array
+                            items:
+                              $ref: ../../schemas/ops/backup-run.schema.json
+                          - type: 'null'
+                        description: null si la donnée est inconnue (voir unknown_reason).
   /incidents:
     get:
       tags:
-      - incidents
+        - incidents
       operationId: listIncidents
       x-kaiviro-min-role: viewer
       x-kaiviro-level: 1
       parameters:
-      - name: status
-        in: query
-        schema:
-          type: string
-          enum:
-          - open
-          - closed
-          - all
-          default: open
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum:
+              - open
+              - closed
+              - all
+            default: open
       responses:
         '200':
           description: Liste.
@@ -702,7 +702,7 @@ paths:
               schema:
                 type: object
                 required:
-                - items
+                  - items
                 properties:
                   items:
                     type: array
@@ -710,7 +710,7 @@ paths:
                       $ref: ../../schemas/ops/incident.schema.json
     post:
       tags:
-      - incidents
+        - incidents
       operationId: declareIncident
       x-kaiviro-min-role: administrator
       x-kaiviro-level: 2
@@ -721,9 +721,9 @@ paths:
             schema:
               type: object
               required:
-              - title
-              - severity
-              - service
+                - title
+                - severity
+                - service
               additionalProperties: false
               properties:
                 title:
@@ -733,10 +733,10 @@ paths:
                 severity:
                   type: string
                   enum:
-                  - SEV1
-                  - SEV2
-                  - SEV3
-                  - SEV4
+                    - SEV1
+                    - SEV2
+                    - SEV3
+                    - SEV4
                 service:
                   type: string
                 summary:
@@ -754,12 +754,12 @@ paths:
   /incidents/{id}:
     patch:
       tags:
-      - incidents
+        - incidents
       operationId: updateIncident
       x-kaiviro-min-role: administrator
       x-kaiviro-level: 2
       parameters:
-      - $ref: '#/components/parameters/Id'
+        - $ref: '#/components/parameters/Id'
       requestBody:
         required: true
         content:
@@ -771,10 +771,10 @@ paths:
                 status:
                   type: string
                   enum:
-                  - acknowledged
-                  - mitigating
-                  - resolved
-                  - closed
+                    - acknowledged
+                    - mitigating
+                    - resolved
+                    - closed
                 note:
                   type: string
                   maxLength: 2000
@@ -790,20 +790,20 @@ paths:
   /audit:
     get:
       tags:
-      - audit
+        - audit
       operationId: listAuditEvents
       x-kaiviro-min-role: owner
       x-kaiviro-level: 1
       parameters:
-      - name: since
-        in: query
-        schema:
-          type: string
-          format: date-time
-      - name: cursor
-        in: query
-        schema:
-          type: string
+        - name: since
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: cursor
+          in: query
+          schema:
+            type: string
       responses:
         '200':
           description: Journal d'audit, ordre antéchronologique.
@@ -812,7 +812,7 @@ paths:
               schema:
                 type: object
                 required:
-                - items
+                  - items
                 properties:
                   items:
                     type: array
@@ -820,14 +820,14 @@ paths:
                       $ref: ../../schemas/ops/audit-event.schema.json
                   next_cursor:
                     type:
-                    - string
-                    - 'null'
+                      - string
+                      - 'null'
         '403':
           $ref: '#/components/responses/Forbidden'
   /dev/pull-requests:
     get:
       tags:
-      - development
+        - development
       operationId: listPullRequests
       x-kaiviro-min-role: viewer
       x-kaiviro-level: 1
@@ -838,28 +838,28 @@ paths:
             application/json:
               schema:
                 allOf:
-                - $ref: ../../schemas/ops/freshness.schema.json
-                - type: object
-                  required:
-                  - data
-                  properties:
-                    data:
-                      oneOf:
-                      - type: array
-                        items:
-                          $ref: '#/components/schemas/PullRequest'
-                      - type: 'null'
-                      description: null si la donnée est inconnue (voir unknown_reason).
+                  - $ref: ../../schemas/ops/freshness.schema.json
+                  - type: object
+                    required:
+                      - data
+                    properties:
+                      data:
+                        oneOf:
+                          - type: array
+                            items:
+                              $ref: '#/components/schemas/PullRequest'
+                          - type: 'null'
+                        description: null si la donnée est inconnue (voir unknown_reason).
   /deliverables/{id}/comments:
     post:
       tags:
-      - crm
+        - crm
       operationId: commentDeliverable
       summary: Commenter un livrable (commentaire GitHub)
       x-kaiviro-min-role: developer
       x-kaiviro-level: 2
       parameters:
-      - $ref: '#/components/parameters/Id'
+        - $ref: '#/components/parameters/Id'
       requestBody:
         required: true
         content:
@@ -867,8 +867,8 @@ paths:
             schema:
               type: object
               required:
-              - body
-              - reason
+                - body
+                - reason
               additionalProperties: false
               properties:
                 body:
@@ -884,14 +884,14 @@ paths:
   /decisions/{id}:
     post:
       tags:
-      - crm
+        - crm
       operationId: actOnDecision
       summary: Commenter, trancher (commentaire + fermeture) ou rouvrir une décision
       description: 'Action d''audit : decision.comment, decision.resolve ou decision.reopen. L''ADR liée reste mise à jour par PR.'
       x-kaiviro-min-role: developer
       x-kaiviro-level: 2
       parameters:
-      - $ref: '#/components/parameters/Id'
+        - $ref: '#/components/parameters/Id'
       requestBody:
         required: true
         content:
@@ -899,16 +899,16 @@ paths:
             schema:
               type: object
               required:
-              - action
-              - reason
+                - action
+                - reason
               additionalProperties: false
               properties:
                 action:
                   type: string
                   enum:
-                  - comment
-                  - resolve
-                  - reopen
+                    - comment
+                    - resolve
+                    - reopen
                 option:
                   type: string
                   maxLength: 200
@@ -927,13 +927,13 @@ paths:
   /partners/{id}/events:
     post:
       tags:
-      - crm
+        - crm
       operationId: addPartnerEvent
       summary: Ajouter une interaction à l'historique
       x-kaiviro-min-role: administrator
       x-kaiviro-level: 2
       parameters:
-      - $ref: '#/components/parameters/Id'
+        - $ref: '#/components/parameters/Id'
       requestBody:
         required: true
         content:
@@ -941,18 +941,18 @@ paths:
             schema:
               type: object
               required:
-              - kind
-              - text
-              - reason
+                - kind
+                - text
+                - reason
               additionalProperties: false
               properties:
                 kind:
                   type: string
                   enum:
-                  - appel
-                  - email
-                  - rdv
-                  - note
+                    - appel
+                    - email
+                    - rdv
+                    - note
                 text:
                   type: string
                   minLength: 1
@@ -968,22 +968,22 @@ paths:
             application/json:
               schema:
                 allOf:
-                - $ref: ../../schemas/ops/freshness.schema.json
-                - type: object
-                  required:
-                  - data
-                  properties:
-                    data:
-                      oneOf:
-                      - $ref: '#/components/schemas/Partner'
-                      - type: 'null'
-                      description: null si la donnée est inconnue (voir unknown_reason).
+                  - $ref: ../../schemas/ops/freshness.schema.json
+                  - type: object
+                    required:
+                      - data
+                    properties:
+                      data:
+                        oneOf:
+                          - $ref: '#/components/schemas/Partner'
+                          - type: 'null'
+                        description: null si la donnée est inconnue (voir unknown_reason).
         '400': *id003
         '403': *id004
   /partners/import:
     post:
       tags:
-      - crm
+        - crm
       operationId: importPartners
       summary: Remplacer toutes les fiches par un fichier exporté (état actuel sauvegardé avant)
       x-kaiviro-min-role: owner
@@ -995,9 +995,9 @@ paths:
             schema:
               type: object
               required:
-              - confirm
-              - reason
-              - file
+                - confirm
+                - reason
+                - file
               additionalProperties: false
               properties:
                 confirm:
@@ -1016,7 +1016,7 @@ paths:
   /partners/backups:
     get:
       tags:
-      - crm
+        - crm
       operationId: listPartnerBackups
       summary: Instantanés automatiques des partenaires
       x-kaiviro-min-role: administrator
@@ -1026,7 +1026,7 @@ paths:
           description: Liste.
     post:
       tags:
-      - crm
+        - crm
       operationId: restorePartnerBackup
       summary: Restaurer un instantané (état actuel sauvegardé avant)
       x-kaiviro-min-role: owner
@@ -1038,9 +1038,9 @@ paths:
             schema:
               type: object
               required:
-              - confirm
-              - reason
-              - name
+                - confirm
+                - reason
+                - name
               additionalProperties: false
               properties:
                 confirm:
@@ -1125,9 +1125,9 @@ components:
       description: RFC 9457. Aucun détail interne ni secret.
       type: object
       required:
-      - type
-      - title
-      - status
+        - type
+        - title
+        - status
       properties:
         type:
           type: string
@@ -1142,32 +1142,32 @@ components:
     Source:
       type: object
       required:
-      - id
-      - name
-      - state
-      - provenance
+        - id
+        - name
+        - state
+        - provenance
       properties:
         id:
           type: string
           enum:
-          - S1
-          - S2
-          - S3
-          - S4
-          - S5
-          - S6
-          - S7
-          - S8
-          - S9
+            - S1
+            - S2
+            - S3
+            - S4
+            - S5
+            - S6
+            - S7
+            - S8
+            - S9
         name:
           type: string
         state:
           type: string
           enum:
-          - connected
-          - disconnected
-          - error
-          - planned
+            - connected
+            - disconnected
+            - error
+            - planned
         phase:
           type: string
           description: Phase de branchement prévue, ex. CC-M2.
@@ -1176,16 +1176,16 @@ components:
     Deliverable:
       type: object
       required:
-      - id
-      - title
-      - mission
-      - type
-      - status
-      - path
-      - due_on
-      - assignee
-      - url
-      - days
+        - id
+        - title
+        - mission
+        - type
+        - status
+        - path
+        - due_on
+        - assignee
+        - url
+        - days
       properties:
         id:
           type: string
@@ -1195,38 +1195,38 @@ components:
         mission:
           type: string
           enum:
-          - commun
-          - a
-          - b
-          - humains
+            - commun
+            - a
+            - b
+            - humains
         type:
           type: string
           description: Label type:* de l'issue, ex. ADR, Spécification.
         status:
           type: string
           enum:
-          - todo
-          - in_progress
-          - in_review
-          - done
+            - todo
+            - in_progress
+            - in_review
+            - done
         path:
           type:
-          - string
-          - 'null'
+            - string
+            - 'null'
           description: Chemin dans le dépôt.
         due_on:
           type:
-          - string
-          - 'null'
+            - string
+            - 'null'
           format: date
         assignee:
           type:
-          - string
-          - 'null'
+            - string
+            - 'null'
         url:
           type:
-          - string
-          - 'null'
+            - string
+            - 'null'
           format: uri
         days:
           type: array
@@ -1240,9 +1240,9 @@ components:
     Decision:
       type: object
       required:
-      - id
-      - title
-      - status
+        - id
+        - title
+        - status
       properties:
         id:
           type: string
@@ -1251,36 +1251,36 @@ components:
         status:
           type: string
           enum:
-          - open
-          - decided
+            - open
+            - decided
         adr:
           type:
-          - string
-          - 'null'
+            - string
+            - 'null'
           description: Ex. ADR-0012.
         owner:
           type:
-          - string
-          - 'null'
+            - string
+            - 'null'
         url:
           type:
-          - string
-          - 'null'
+            - string
+            - 'null'
           format: uri
     PartnerInput:
       type: object
       required:
-      - type
-      - name
-      - reason
+        - type
+        - name
+        - reason
       additionalProperties: false
       properties:
         type: &id005
           type: string
           enum:
-          - garage
-          - obd_supplier
-          - beta_tester
+            - garage
+            - obd_supplier
+            - beta_tester
           description: Fixe la référence (G-, O-, T-) ; non modifiable.
         name: &id006
           type: string
@@ -1296,26 +1296,26 @@ components:
         stage: &id009
           type: string
           enum:
-          - to_contact
-          - in_discussion
-          - active
-          - paused
-          - closed
+            - to_contact
+            - in_discussion
+            - active
+            - paused
+            - closed
           description: closed ouvre le délai de conservation (CRM_SPEC §5.8).
         next_action: &id010
           type: string
           maxLength: 200
         due_on: &id011
           type:
-          - string
-          - 'null'
+            - string
+            - 'null'
           format: date
           description: Date de relance.
         owner_name: &id012
           type: string
           enum:
-          - Johan
-          - Collègue
+            - Johan
+            - Collègue
           description: Responsable. Remplacé par owner_admin_id avec les comptes admin (CC-M3).
         equipment: &id013
           type: string
@@ -1323,10 +1323,10 @@ components:
         consent_status: &id014
           type: string
           enum:
-          - not_required
-          - pending
-          - granted
-          - withdrawn
+            - not_required
+            - pending
+            - granted
+            - withdrawn
         notes: &id015
           type: string
           maxLength: 2000
@@ -1335,23 +1335,23 @@ components:
     Partner:
       type: object
       required:
-      - id
-      - ref
-      - type
-      - name
-      - role
-      - contact
-      - stage
-      - next_action
-      - due_on
-      - owner_name
-      - owner_admin_id
-      - equipment
-      - consent_status
-      - notes
-      - created_at
-      - updated_at
-      - events
+        - id
+        - ref
+        - type
+        - name
+        - role
+        - contact
+        - stage
+        - next_action
+        - due_on
+        - owner_name
+        - owner_admin_id
+        - equipment
+        - consent_status
+        - notes
+        - created_at
+        - updated_at
+        - events
       properties:
         id:
           type: string
@@ -1371,8 +1371,8 @@ components:
         notes: *id015
         owner_admin_id:
           type:
-          - string
-          - 'null'
+            - string
+            - 'null'
           format: uuid
         created_at:
           type: string
@@ -1385,10 +1385,10 @@ components:
           items:
             type: object
             required:
-            - id
-            - at
-            - kind
-            - text
+              - id
+              - at
+              - kind
+              - text
             properties:
               id:
                 type: string
@@ -1398,54 +1398,54 @@ components:
               kind:
                 type: string
                 enum:
-                - created
-                - stage
-                - due
-                - edit
-                - appel
-                - email
-                - rdv
-                - note
+                  - created
+                  - stage
+                  - due
+                  - edit
+                  - appel
+                  - email
+                  - rdv
+                  - note
               text:
                 type: string
                 maxLength: 1000
     Container:
       type: object
       required:
-      - name
-      - state
+        - name
+        - state
       properties:
         name:
           type: string
         image:
           type:
-          - string
-          - 'null'
+            - string
+            - 'null'
         state:
           type: string
           enum:
-          - running
-          - restarting
-          - exited
-          - unknown
+            - running
+            - restarting
+            - exited
+            - unknown
         restartable:
           type: boolean
           description: true si présent dans la liste blanche.
         cpu_ratio:
           type:
-          - number
-          - 'null'
+            - number
+            - 'null'
         memory_bytes:
           type:
-          - integer
-          - 'null'
+            - integer
+            - 'null'
     PullRequest:
       type: object
       required:
-      - number
-      - title
-      - branch
-      - ci_status
+        - number
+        - title
+        - branch
+        - ci_status
       properties:
         number:
           type: integer
@@ -1458,17 +1458,17 @@ components:
         ci_status:
           type: string
           enum:
-          - success
-          - failure
-          - pending
-          - unknown
+            - success
+            - failure
+            - pending
+            - unknown
         url:
           type: string
           format: uri
     PartnerPatch:
       type: object
       required:
-      - reason
+        - reason
       minProperties: 2
       additionalProperties: false
       properties:
