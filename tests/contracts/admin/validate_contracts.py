@@ -46,6 +46,10 @@ EXAMPLES = [
     ("freshness", FRESH_UNKNOWN, True, "fraîcheur inconnue avec raison"),
     ("freshness", {"source": "S5", "fetched_at": None, "freshness": "unknown", "demo": False}, False,
      "inconnu sans raison refusé"),
+    ("freshness", {"source": "ref:docs/roadmap/M0_PLAN.md", "source_label": "Plan M0", "fetched_at": None, "freshness": "static",
+                   "demo": False, "unknown_reason": None, "data": []}, True, "donnée de référence en enveloppe plate"),
+    ("freshness", {"source": "Prometheus", "fetched_at": None, "freshness": "live", "demo": False}, False,
+     "source hors S1–S9 et sans ref: refusée"),
     ("metric", {"name": "pi_temperature_celsius", "value": None, "unit": "celsius",
                 "provenance": FRESH_UNKNOWN}, True, "métrique inconnue = null"),
     ("service-health", {"service": "pi", "status": "unknown", "checked_at": None,
@@ -73,6 +77,10 @@ EXAMPLES = [
     ("deployment", {"component": "backend", "environment": "staging", "version": "0.1.0",
                     "commit": "0" * 40, "released_at": "2026-11-05T10:00:00Z", "status": "succeeded"},
      True, "événement de release"),
+    ("audit-event", {"id": "00000000-0000-4000-8000-000000000003", "at": "2026-11-09T09:30:00Z",
+                     "actor": {"type": "admin", "id": "local-admin", "role": "owner"}, "action": "partner.update",
+                     "level": 2, "resource": {"type": "partner", "id": "p-1"}, "outcome": "denied", "reason": None,
+                     "correlation_id": "c-2"}, True, "refus faute de motif journalisé sans motif"),
 ]
 
 

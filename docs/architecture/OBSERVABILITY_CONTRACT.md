@@ -2,8 +2,8 @@
 title: Contrat de supervision (observabilité)
 owner: mission-a
 status: PROPOSED
-version: 0.1
-updated: 2026-11-05
+version: 0.2
+updated: 2026-11-09
 ---
 
 # Contrat de supervision
@@ -28,15 +28,18 @@ Chaque indicateur affiché par le Command Center porte :
 
 | Champ | Type | Sens |
 |---|---|---|
-| `source` | chaîne | Identifiant de source (`S1`…`S9`, voir CRM_SPEC §4) |
+| `source` | chaîne | Code de source : `S1`…`S9` (CRM_SPEC §4), ou `ref:<chemin>` pour une donnée de référence versionnée dans le dépôt |
+| `source_label` | chaîne | Libellé lisible, ex. « S5 · Prometheus · Node Exporter » |
 | `fetched_at` | date-heure ou `null` | Dernière lecture réussie |
-| `freshness` | `live` · `stale` · `unknown` | `live` si âge ≤ 2 × fréquence attendue ; `stale` au-delà ; `unknown` si jamais mesuré ou source non connectée |
+| `freshness` | `live` · `stale` · `unknown` · `static` | `live` si âge ≤ 2 × fréquence attendue ; `stale` au-delà ; `unknown` si jamais mesuré ou source non connectée ; `static` pour une donnée de référence (plan, spécification), jamais une mesure |
 | `demo` | booléen | `true` si la valeur vient d'un jeu de démonstration |
 | `unknown_reason` | chaîne ou `null` | `never_measured` · `source_disconnected` · `source_error` · `not_applicable` · `not_collected` |
 
 Affichage : `freshness = unknown` → `—` + badge « Inconnu » + « jamais mesuré » ou âge de la dernière mesure. Voir [DESIGN_SYSTEM §6](../command-center/DESIGN_SYSTEM.md).
 
 Schéma : [`freshness.schema.json`](../../packages/schemas/ops/freshness.schema.json).
+
+Les réponses de lecture de l'API d'administration sont une **enveloppe plate** : ces champs plus `data` (`null` si la donnée est inconnue). Les champs `source_label` et `static` ont été ajoutés en v0.2 pour s'aligner sur le prototype CC-M1.
 
 ## 3. Endpoints attendus du backend applicatif (B)
 
