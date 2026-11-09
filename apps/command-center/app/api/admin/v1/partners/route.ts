@@ -1,20 +1,21 @@
 import type { NextRequest } from "next/server";
-import { problem, sourced } from "@/lib/api/respond";
-import { guardWrite } from "@/lib/api/guard";
+import { problem, sourced, sourcedAs } from "@/lib/api/respond";
+import { audited } from "@/lib/api/audit";
 import { getPartners } from "@/lib/queries";
-import { PartnerInput } from "@/lib/partners";
+import { PartnerInput, partnerBodyFromApi, partnerToApi } from "@/lib/partners";
 import { createPartner } from "@/lib/sources/partners-store";
 
+/** Partenaires au format du contrat (OpenAPI, schéma Partner). */
 export async function GET() {
-  return sourced(await getPartners());
+  return sourcedAs(await getPartners(), (list) => list.map(partnerToApi));
 }
 
-/** Crée un partenaire dans le fichier local. Garde : JSON et même hôte (pas besoin de GitHub). */
+/** Crée un partenaire dans le fichier local. Niveau 2 : garde (sans GitHub), motif et audit. */
 export async function POST(req: NextRequest) {
-  const refused = guardWrite(req, { github: false });
-  if (refused) return refused;
-  const parsed = PartnerInput.safeParse(await req.json().catch(() => null));
-  if (!parsed.success) return problem(400, "Partenaire invalide", parsed.error.issues.map((i) => i.message).join(" · "));
-  const p = await createPartner(parsed.data);
-  return sourced({ value: p, source: "Fichier local · data/partners.json", fetchedAt: new Date().toISOString(), freshness: "live", demo: false }, { status: 201 });
+  return audited(req, { action: "partner.create", level: 2, resource: { type: "partner", id: "new" }, github: false }, async (raw) => {
+    const parsed = PartnerInput.safeParse(partnerBodyFromApi(raw));
+    if (!parsed.success) return problem(400, "Partenaire invalide", parsed.error.issues.map((i) => i.message).join(" · "));
+    const p = await createPartner(parsed.data);
+    return sourced({ value: partnerToApi(p), source: "S8 · fichier local data/partners.json, en attendant Supabase", fetchedAt: new Date().toISOString(), freshness: "live", demo: false }, { status: 201 });
+  });
 }

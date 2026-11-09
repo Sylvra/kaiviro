@@ -257,8 +257,8 @@ export async function getPlanDay(): Promise<Sourced<PlanDay>> {
 export async function getPartners(): Promise<Sourced<Partner[]>> {
   try {
     const { partners } = await readPartners();
-    return { value: partners, source: "Fichier local · data/partners.json", fetchedAt: new Date().toISOString(), freshness: "live", demo: false };
+    return { value: partners, source: "S8 · fichier local data/partners.json, en attendant Supabase", fetchedAt: new Date().toISOString(), freshness: "live", demo: false };
   } catch {
-    return { value: null, source: "Fichier local · data/partners.json (illisible)", fetchedAt: null, freshness: "unknown", demo: false };
+    return { value: null, source: "S8 · fichier local data/partners.json, en attendant Supabase (illisible)", fetchedAt: null, freshness: "unknown", demo: false };
   }
 }

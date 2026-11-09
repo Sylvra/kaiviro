@@ -6,6 +6,7 @@ import { ArrowRight, CalendarDays, ExternalLink } from "lucide-react";
 import { DeliverableSheet } from "./DeliverableSheet";
 import type { Deliverable, Owner, Status } from "@/lib/data/plan";
 import { STATUS_LABELS } from "@/lib/data/plan";
+import { statusToApi } from "@/lib/contract";
 import type { Freshness } from "@/lib/sources/types";
 import { OWNER_INITIALS, OWNER_LABEL, OWNER_TONE, TONE } from "./tone";
 import { Pill, cx } from "./ui";
@@ -41,7 +42,7 @@ export function Board({ items, freshness }: { items: Deliverable[]; freshness: F
       return false;
     }
     const res = await fetch(`/api/admin/v1/deliverables/${encodeURIComponent(d.id)}`, {
-      method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status: next }),
+      method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status: statusToApi(next), reason: `Statut : ${STATUS_LABELS[before]} → ${STATUS_LABELS[next]} (Tableau)` }),
     }).catch(() => null);
     if (!res || !res.ok) {
       setStatus((s) => ({ ...s, [d.id]: before }));

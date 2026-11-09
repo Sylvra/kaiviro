@@ -41,7 +41,8 @@ export function NewDeliverable({ live }: { live: boolean }) {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        title: f.get("title"), mission: f.get("mission"), kind: f.get("kind"),
+        title: f.get("title"), mission: f.get("mission"), type: f.get("kind"),
+        reason: "Création depuis le bouton Nouveau",
         days: [start, end], path: (f.get("path") as string) || undefined,
       }),
     }).catch(() => null);

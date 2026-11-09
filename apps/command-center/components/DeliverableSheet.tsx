@@ -64,7 +64,7 @@ export function DeliverableSheet({ item, status, live, onStatus, onClose }: {
     const changes = {
       ...(title !== item.title ? { title } : {}),
       ...(mission !== MISSION_OF[item.owner] ? { mission } : {}),
-      ...(kind !== item.kind ? { kind } : {}),
+      ...(kind !== item.kind ? { type: kind } : {}),
       ...(days[0] !== item.days[0] || days[1] !== item.days[1] ? { days } : {}),
       ...(path !== pathOf(item) ? { path } : {}),
     };
@@ -72,7 +72,7 @@ export function DeliverableSheet({ item, status, live, onStatus, onClose }: {
     setSaving(true);
     setError(null);
     const r = await fetch(`/api/admin/v1/deliverables/${encodeURIComponent(item.id)}`, {
-      method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(changes),
+      method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...changes, reason: `Fiche modifiée : ${Object.keys(changes).join(", ")}` }),
     }).catch(() => null);
     setSaving(false);
     if (!r || !r.ok) {
@@ -105,7 +105,7 @@ export function DeliverableSheet({ item, status, live, onStatus, onClose }: {
     setBusy(true);
     setError(null);
     const r = await fetch(`/api/admin/v1/deliverables/${encodeURIComponent(item.id)}/comments`, {
-      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ body: draft.trim() }),
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ body: draft.trim(), reason: "Commentaire ajouté depuis la fiche du livrable" }),
     }).catch(() => null);
     setBusy(false);
     if (!r || !r.ok) {

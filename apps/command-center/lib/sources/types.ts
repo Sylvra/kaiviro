@@ -21,7 +21,11 @@ export interface Sourced<T> {
   freshness: Freshness;
   /** vrai si la valeur est un exemple de démonstration */
   demo: boolean;
+  /** pourquoi la valeur est inconnue (freshness.schema.json) ; déduit du libellé de source si absent */
+  unknownReason?: UnknownReason;
 }
+
+export type UnknownReason = "never_measured" | "source_disconnected" | "source_error" | "not_applicable" | "not_collected";
 
 export type SourceId = "S1" | "S2" | "S3" | "S4" | "S5" | "S6" | "S7" | "S8" | "S9";
 export type Mission = "A" | "B";

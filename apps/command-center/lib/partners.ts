@@ -5,12 +5,13 @@ import { z } from "zod";
  * Stockage CC-M1 : fichier local ignoré par Git (lib/sources/partners-store.ts), en attendant S8 (Supabase).
  */
 export type PartnerType = "garage" | "obd" | "beta";
-export type PartnerStage = 0 | 1 | 2 | 3;
+export type PartnerStage = 0 | 1 | 2 | 3 | 4;
 
-export const PARTNER_STAGES = ["À contacter", "En discussion", "Partenaire actif", "En pause"] as const;
+/** Étapes du pipeline (CRM_SPEC §5.4) ; « Clos » ouvre le délai de conservation (§5.8). */
+export const PARTNER_STAGES = ["À contacter", "En discussion", "Partenaire actif", "En pause", "Clos"] as const;
 export const PARTNER_TYPES: Record<PartnerType, string> = { garage: "Garage testeur", obd: "Fournisseur OBD", beta: "Bêta-testeur" };
 export const PARTNER_OWNERS = ["Johan", "Collègue"] as const;
-export const CONSENTS = ["À recueillir", "Recueilli", "Non requis"] as const;
+export const CONSENTS = ["À recueillir", "Recueilli", "Non requis", "Retiré"] as const;
 const REF_PREFIX: Record<PartnerType, string> = { garage: "G", obd: "O", beta: "T" };
 
 export interface Partner {
@@ -75,7 +76,7 @@ const fields = {
   name: z.string().trim().min(2).max(120),
   role: text(80),
   contact: text(160),
-  stage: z.number().int().min(0).max(3),
+  stage: z.number().int().min(0).max(4),
   next: text(200),
   due: z.union([z.literal(""), z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Date de relance au format AAAA-MM-JJ").refine((d) => !Number.isNaN(Date.parse(d)), "Date de relance invalide")]),
   owner: z.enum(PARTNER_OWNERS),
@@ -149,4 +150,138 @@ export function nextRef(list: Pick<Partner, "ref">[], type: PartnerType): string
     return r ? Math.max(m, Number(r[1])) : m;
   }, 0);
   return `${prefix}-${String(max + 1).padStart(2, "0")}`;
+}
+
+// ---------- Contrat API (packages/api-contracts/admin/openapi.yaml, schéma Partner) ----------
+// Le stockage local garde le format interne (export, sauvegardes, import). L'API parle le format du contrat.
+
+export const STAGE_API = ["to_contact", "in_discussion", "active", "paused", "closed"] as const;
+export type ApiStage = (typeof STAGE_API)[number];
+type Consent = (typeof CONSENTS)[number];
+export const TYPE_API = { garage: "garage", obd: "obd_supplier", beta: "beta_tester" } as const satisfies Record<PartnerType, string>;
+export type ApiPartnerType = (typeof TYPE_API)[PartnerType];
+export const CONSENT_API = { "À recueillir": "pending", Recueilli: "granted", "Non requis": "not_required", Retiré: "withdrawn" } as const satisfies Record<Consent, string>;
+export type ApiConsent = (typeof CONSENT_API)[Consent];
+const invert = <K extends string, V extends string>(o: Record<K, V>) => Object.fromEntries(Object.entries(o).map(([k, v]) => [v, k])) as Record<V, K>;
+const TYPE_FROM_API = invert<PartnerType, ApiPartnerType>(TYPE_API);
+const CONSENT_FROM_API = invert<Consent, ApiConsent>(CONSENT_API);
+
+export interface ApiPartner {
+  id: string;
+  ref: string;
+  type: ApiPartnerType;
+  name: string;
+  role: string;
+  contact: string;
+  stage: ApiStage;
+  next_action: string;
+  due_on: string | null;
+  owner_name: string;
+  owner_admin_id: string | null;
+  equipment: string;
+  consent_status: ApiConsent;
+  notes: string;
+  created_at: string;
+  updated_at: string;
+  events: PartnerEvent[];
+}
+
+export function partnerToApi(p: Partner): ApiPartner {
+  return {
+    id: p.id, ref: p.ref, type: TYPE_API[p.type], name: p.name, role: p.role, contact: p.contact,
+    stage: STAGE_API[p.stage], next_action: p.next, due_on: p.due || null, owner_name: p.owner, owner_admin_id: null,
+    equipment: p.gear, consent_status: CONSENT_API[p.consent], notes: p.note, created_at: p.createdAt, updated_at: p.updatedAt, events: p.events ?? [],
+  };
+}
+
+export function partnerFromApi(a: ApiPartner): Partner {
+  return {
+    id: a.id, ref: a.ref, type: TYPE_FROM_API[a.type], name: a.name, role: a.role, contact: a.contact,
+    stage: STAGE_API.indexOf(a.stage) as PartnerStage, next: a.next_action, due: a.due_on ?? "", owner: a.owner_name as Partner["owner"],
+    gear: a.equipment, consent: CONSENT_FROM_API[a.consent_status], note: a.notes, createdAt: a.created_at, updatedAt: a.updated_at, events: a.events,
+  };
+}
+
+const same = (v: unknown) => v;
+const lookup = (table: Record<string, unknown>) => (v: unknown) => (typeof v === "string" && v in table ? table[v] : v);
+
+/** Champs du contrat → champs internes. Une valeur inconnue passe telle quelle : la validation zod la refuse ensuite. */
+const BODY_FROM_API: Record<string, [string, (v: unknown) => unknown]> = {
+  type: ["type", lookup(TYPE_FROM_API)],
+  name: ["name", same],
+  role: ["role", same],
+  contact: ["contact", same],
+  stage: ["stage", (v) => { const i = STAGE_API.indexOf(v as ApiStage); return i >= 0 ? i : v; }],
+  next_action: ["next", same],
+  due_on: ["due", (v) => v ?? ""],
+  owner_name: ["owner", same],
+  equipment: ["gear", same],
+  consent_status: ["consent", lookup(CONSENT_FROM_API)],
+  notes: ["note", same],
+};
+
+/** Corps de requête (création ou modification) au format du contrat → champs internes. Les autres clés sont ignorées. */
+export function partnerBodyFromApi(raw: unknown): unknown {
+  if (!raw || typeof raw !== "object") return raw;
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(raw)) {
+    const m = BODY_FROM_API[k];
+    if (m) out[m[0]] = m[1](v);
+  }
+  return out;
+}
+
+const BODY_TO_API: Record<string, [string, (v: unknown) => unknown]> = {
+  type: ["type", lookup(TYPE_API)],
+  stage: ["stage", (v) => (typeof v === "number" ? STAGE_API[v] ?? v : v)],
+  next: ["next_action", same],
+  due: ["due_on", (v) => (v === "" ? null : v)],
+  owner: ["owner_name", same],
+  gear: ["equipment", same],
+  consent: ["consent_status", lookup(CONSENT_API)],
+  note: ["notes", same],
+};
+
+/** Inverse, pour le navigateur : champs internes → contrat. Les clés hors fiche (reason, confirm, kind…) sont conservées. */
+export function partnerBodyToApi(body: Record<string, unknown>): Record<string, unknown> {
+  return Object.fromEntries(Object.entries(body).map(([k, v]) => (BODY_TO_API[k] ? [BODY_TO_API[k][0], BODY_TO_API[k][1](v)] : [k, v])));
+}
+
+// ---------- Conservation (CRM_SPEC §5.8, durées proposées, à valider par les humains) ----------
+
+export interface RetentionAlert { id: string; ref: string; name: string; reason: string; due: string; overdue: boolean }
+
+function addYears(day: string, n: number): string {
+  const d = new Date(`${day}T12:00:00Z`);
+  d.setUTCFullYear(d.getUTCFullYear() + n);
+  return d.toISOString().slice(0, 10);
+}
+
+/** Date (AAAA-MM-JJ) du dernier événement qui correspond, sinon la date de repli. */
+function lastEventDay(p: Partner, match: (e: PartnerEvent) => boolean, fallback: string): string {
+  return ([...(p.events ?? [])].reverse().find(match)?.at ?? fallback).slice(0, 10);
+}
+
+/**
+ * Fiches à supprimer ou anonymiser dans les `horizonDays` prochains jours (ou déjà en retard).
+ * N'efface rien : la suppression reste une action N3 d'un humain.
+ */
+export function retentionAlerts(partners: Partner[], today: string, horizonDays = 14): RetentionAlert[] {
+  const out: RetentionAlert[] = [];
+  for (const p of partners) {
+    let due: string | null = null;
+    let reason = "";
+    if (p.stage === 4) {
+      due = addYears(lastEventDay(p, (e) => e.kind === "stage" && e.text.endsWith(`→ ${PARTNER_STAGES[4]}`), p.updatedAt), 3);
+      reason = "Relation close : supprimer ou anonymiser 3 ans après la clôture";
+    } else if (p.type === "beta" && p.consent === "Retiré") {
+      due = addDays(lastEventDay(p, (e) => e.kind === "edit" && e.text.includes("consentement"), p.updatedAt), 30);
+      reason = "Consentement retiré : supprimer sous 30 jours";
+    } else if (p.type === "beta" && p.consent === "À recueillir") {
+      due = addDays(p.createdAt.slice(0, 10), 30);
+      reason = "Consentement non recueilli : supprimer 30 jours après la création";
+    }
+    if (due && due <= addDays(today, horizonDays)) out.push({ id: p.id, ref: p.ref, name: p.name, reason, due, overdue: due <= today });
+  }
+  return out.sort((a, b) => a.due.localeCompare(b.due));
 }

@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 import { LayoutGroup, motion, useReducedMotion } from "motion/react";
 import { Download, Pencil, Plus, Trash2, X } from "lucide-react";
-import { CONSENTS, EVENT_LABEL, INTERACTIONS, PARTNER_OWNERS, PARTNER_STAGES, PARTNER_TYPES, addDays, dueState, type Partner, type PartnerStage, type PartnerType } from "@/lib/partners";
+import { CONSENTS, EVENT_LABEL, INTERACTIONS, PARTNER_OWNERS, PARTNER_STAGES, PARTNER_TYPES, addDays, dueState, partnerBodyToApi, partnerFromApi, retentionAlerts, type ApiPartner, type Partner, type PartnerStage, type PartnerType } from "@/lib/partners";
 import type { Tone } from "@/lib/data/ops";
 import { Pill, cx } from "./ui";
 import { TONE } from "./tone";
@@ -11,15 +11,19 @@ import { field } from "./NewDeliverable";
 import { PartnerBackups } from "./PartnerBackups";
 
 const TYPE_TONE: Record<PartnerType, Tone> = { garage: "mint", obd: "sky", beta: "lavender" };
-const STAGE_TINT = ["bg-[#f6f3ee]", "bg-[#eef5fc]", "bg-[#e9f7f1]", "bg-[#fff6e3]"];
+const STAGE_TINT = ["bg-[#f6f3ee]", "bg-[#eef5fc]", "bg-[#e9f7f1]", "bg-[#fff6e3]", "bg-[#f1efec]"];
 const API = "/api/admin/v1/partners";
 
-async function call(url: string, method: string, body?: unknown): Promise<{ ok: true; data: unknown } | { ok: false; error: string }> {
-  const r = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: body === undefined ? undefined : JSON.stringify(body) }).catch(() => null);
+/** Réponse de l'API (format du contrat) → fiche interne. */
+const fromApi = (d: unknown) => (d && typeof d === "object" && "consent_status" in d ? partnerFromApi(d as ApiPartner) : d);
+
+/** Appel de l'API partenaires : le corps est converti au format du contrat, la réponse en fiche interne. */
+async function call(url: string, method: string, body?: Record<string, unknown>): Promise<{ ok: true; data: unknown } | { ok: false; error: string }> {
+  const r = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: body === undefined ? undefined : JSON.stringify(partnerBodyToApi(body)) }).catch(() => null);
   if (!r) return { ok: false, error: "Le serveur ne répond pas." };
   if (r.status === 204) return { ok: true, data: null };
   const j = await r.json().catch(() => null);
-  return r.ok ? { ok: true, data: j?.data } : { ok: false, error: j?.detail ?? j?.title ?? `Erreur ${r.status}` };
+  return r.ok ? { ok: true, data: fromApi(j?.data) } : { ok: false, error: j?.detail ?? j?.title ?? `Erreur ${r.status}` };
 }
 
 /** Champs communs à la création et à la modification. `type` seulement à la création (il fixe la référence). */
@@ -131,6 +135,7 @@ export function Partners({ initial, available, today, focus }: { initial: Partne
   const createDialog = useRef<HTMLDialogElement>(null);
   const visible = list.filter((p) => type === "all" || p.type === type);
   const cur = list.find((p) => p.id === sel) ?? list[0];
+  const alerts = retentionAlerts(list, today);
 
   const select = (id: string) => { setSel(id); setMode("view"); setError(null); };
   const replace = (p: Partner) => setList((l) => l.map((x) => (x.id === p.id ? p : x)));
@@ -139,7 +144,7 @@ export function Partners({ initial, available, today, focus }: { initial: Partne
     e.preventDefault();
     const form = e.currentTarget;
     setBusy(true); setError(null);
-    const r = await call(API, "POST", read(form));
+    const r = await call(API, "POST", { ...read(form), reason: "Création de la fiche partenaire" });
     setBusy(false);
     if (!r.ok) return setError(r.error);
     const p = r.data as Partner;
@@ -151,7 +156,9 @@ export function Partners({ initial, available, today, focus }: { initial: Partne
 
   async function patch(p: Partner, changes: Record<string, unknown>) {
     setBusy(true); setError(null);
-    const r = await call(`${API}/${p.id}`, "PATCH", changes);
+    const onlyStage = Object.keys(changes).length === 1 && typeof changes.stage === "number";
+    const reason = onlyStage ? `Étape → ${PARTNER_STAGES[changes.stage as PartnerStage]}` : "Modification de la fiche partenaire";
+    const r = await call(`${API}/${p.id}`, "PATCH", { ...changes, reason });
     setBusy(false);
     if (!r.ok) { setError(r.error); return false; }
     replace(r.data as Partner);
@@ -166,9 +173,11 @@ export function Partners({ initial, available, today, focus }: { initial: Partne
   async function remove(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (!cur) return;
-    const confirm = String(new FormData(e.currentTarget).get("confirm") ?? "");
+    const f = new FormData(e.currentTarget);
+    const confirm = String(f.get("confirm") ?? "");
+    const reason = String(f.get("reason") ?? "").trim();
     setBusy(true); setError(null);
-    const r = await call(`${API}/${cur.id}`, "DELETE", { confirm });
+    const r = await call(`${API}/${cur.id}`, "DELETE", { confirm, reason });
     setBusy(false);
     if (!r.ok) return setError(r.error);
     const rest = list.filter((p) => p.id !== cur.id);
@@ -200,6 +209,19 @@ export function Partners({ initial, available, today, focus }: { initial: Partne
           </button>
         </div>
       </div>
+
+      {alerts.length > 0 && (
+        <div role="status" className="flex flex-col gap-1 rounded-xl border border-[#f2dca5] bg-amber-bg px-3.5 py-2.5 text-[13px] text-amber-ink">
+          <strong className="font-semibold">Conservation des données : {alerts.length} fiche{alerts.length > 1 ? "s" : ""} à traiter (durées proposées, CRM_SPEC §5.8)</strong>
+          <ul className="flex flex-col gap-0.5">
+            {alerts.map((a) => (
+              <li key={a.id}>
+                <button type="button" onClick={() => select(a.id)} className="font-mono underline underline-offset-2">{a.ref}</button> {a.name} · {a.reason} · {a.overdue ? `échéance dépassée (${a.due})` : `échéance ${a.due}`}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {!available && <p role="alert" className="rounded-xl border border-[#f6d2c1] bg-coral-bg px-3.5 py-2.5 text-[13px] text-coral-ink">Le fichier data/partners.json est illisible : rien n’est modifiable tant qu’il n’est pas réparé.</p>}
 
@@ -280,13 +302,13 @@ export function Partners({ initial, available, today, focus }: { initial: Partne
                     </dd>
                     <dt className="text-ink-3">Responsable</dt><dd>{cur.owner}</dd>
                     <dt className="text-ink-3">Matériel</dt><dd>{cur.gear || "—"}</dd>
-                    <dt className="text-ink-3">Consentement</dt><dd><Pill tone={cur.consent === "À recueillir" ? "amber" : cur.consent === "Recueilli" ? "mint" : "neutral"}>{cur.consent}</Pill></dd>
+                    <dt className="text-ink-3">Consentement</dt><dd><Pill tone={cur.consent === "Retiré" ? "coral" : cur.consent === "À recueillir" ? "amber" : cur.consent === "Recueilli" ? "mint" : "neutral"}>{cur.consent}</Pill></dd>
                     {cur.note && <><dt className="text-ink-3">Note</dt><dd className="whitespace-pre-line">{cur.note}</dd></>}
                     <dt className="text-ink-3">Mis à jour</dt><dd className="text-ink-3">{new Date(cur.updatedAt).toLocaleString("fr-FR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</dd>
                   </dl>
                   <History p={cur} today={today} busy={busy} onAdd={async (body) => {
                     setBusy(true); setError(null);
-                    const r = await call(`${API}/${cur.id}/events`, "POST", body);
+                    const r = await call(`${API}/${cur.id}/events`, "POST", { ...body, reason: "Interaction ajoutée à l’historique" });
                     setBusy(false);
                     if (!r.ok) { setError(r.error); return false; }
                     replace(r.data as Partner);
@@ -296,6 +318,9 @@ export function Partners({ initial, available, today, focus }: { initial: Partne
                     <form onSubmit={remove} className="flex flex-col gap-2 rounded-xl border border-[#f6d2c1] bg-coral-bg p-3">
                       <label className="flex flex-col gap-1.5 text-xs font-semibold text-coral-ink">Suppression définitive. Retape <span className="font-mono">{cur.ref}</span> pour confirmer.
                         <input name="confirm" autoComplete="off" required className={cx(field, "bg-white font-mono")} />
+                      </label>
+                      <label className="flex flex-col gap-1.5 text-xs font-semibold text-coral-ink">Motif (journalisé)
+                        <input name="reason" required minLength={3} maxLength={500} placeholder="Demande d’effacement, fin de relation…" className={cx(field, "bg-white")} />
                       </label>
                       <div className="flex justify-end gap-2">
                         <button type="button" onClick={() => { setMode("view"); setError(null); }} className="h-9 rounded-xl border border-[#e5dfd6] bg-white px-3.5 text-[13px] font-semibold">Annuler</button>

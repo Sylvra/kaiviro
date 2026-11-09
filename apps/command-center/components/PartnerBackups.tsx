@@ -45,11 +45,13 @@ export function PartnerBackups() {
   async function confirm(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (!pending) return;
-    const word = String(new FormData(e.currentTarget).get("confirm") ?? "").trim();
+    const f = new FormData(e.currentTarget);
+    const word = String(f.get("confirm") ?? "").trim();
+    const reason = String(f.get("reason") ?? "").trim();
     setBusy(true); setError(null);
     const r = await fetch(pending.kind === "backup" ? `${API}/backups` : `${API}/import`, {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(pending.kind === "backup" ? { name: pending.name, confirm: word } : { file: pending.content, confirm: word }),
+      body: JSON.stringify(pending.kind === "backup" ? { name: pending.name, confirm: word, reason } : { file: pending.content, confirm: word, reason }),
     }).catch(() => null);
     setBusy(false);
     const j = r ? await r.json().catch(() => null) : null;
@@ -90,6 +92,9 @@ export function PartnerBackups() {
               <span className="text-xs text-coral-ink">L’état actuel est sauvegardé juste avant : tu pourras revenir en arrière.</span>
               <label className="flex flex-col gap-1.5 text-xs font-semibold text-coral-ink">Tape RESTAURER pour confirmer
                 <input name="confirm" autoComplete="off" required className={cx(field, "bg-white font-mono")} />
+              </label>
+              <label className="flex flex-col gap-1.5 text-xs font-semibold text-coral-ink">Motif (journalisé)
+                <input name="reason" required minLength={3} maxLength={500} placeholder="Retour à l’état d’hier, import depuis l’autre poste…" className={cx(field, "bg-white")} />
               </label>
               <div className="flex justify-end gap-2">
                 <button type="button" onClick={() => setPending(null)} className="h-9 rounded-xl border border-[#e5dfd6] bg-white px-3.5 text-[13px] font-semibold">Annuler</button>

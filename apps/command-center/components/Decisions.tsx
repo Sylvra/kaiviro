@@ -42,7 +42,11 @@ export function Decisions({ items, live, initial }: { items: Decision[]; live: b
     const res = await fetch(`/api/admin/v1/decisions/${encodeURIComponent(d.key)}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action, option: action === "resolve" ? choice[d.key] : undefined, note: note.trim() || undefined }),
+      body: JSON.stringify({
+        action, option: action === "resolve" ? choice[d.key] : undefined, note: note.trim() || undefined,
+        // Motif journalisé (ADMIN_PERMISSIONS) : l'avis saisi, sinon un résumé de l'action.
+        reason: note.trim().length >= 3 ? note.trim() : action === "comment" ? "Avis publié depuis le CRM" : action === "resolve" ? `Décision tranchée : ${choice[d.key] ?? "option non précisée"}` : "Décision rouverte depuis le CRM",
+      }),
     }).catch(() => null);
     setBusy(null);
     if (!res || !res.ok) {

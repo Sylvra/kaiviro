@@ -81,7 +81,7 @@ export function buildAgency(d: AgencyInput): AgencyModel {
     zone("partenaires", "Partenaires", d.partners === null ? "unknown" : overdue ? "alert" : today ? "warn" : "ok",
       d.partners === null ? "Fichier local illisible" : `${d.partners.length} fiche(s) · ${overdue} relance(s) en retard`,
       d.partners === null ? [] : [`${today} relance(s) aujourd’hui`, `${d.partners.filter((p) => p.stage === 2).length} partenaire(s) actif(s)`],
-      "/crm/partenaires", "Fichier local · data/partners.json"),
+      "/crm/partenaires", "S8 · fichier local data/partners.json, en attendant Supabase"),
     zone("dev", "Development Studio", s1 ? "ok" : "unknown",
       s1 ? `${d.openPulls ?? "?"} PR ouverte(s) · ${d.branches?.filter((b) => b.exists).length ?? 0} branche(s) de mission` : "GitHub non connecté",
       (d.branches ?? []).map((b) => `${b.branch} : ${!b.exists ? "pas sur GitHub" : b.pull ? `PR #${b.pull}` : `${b.aheadBy ?? "?"} commit(s) d’avance`}`),

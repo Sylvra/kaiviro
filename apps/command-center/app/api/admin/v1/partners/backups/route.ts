@@ -1,7 +1,7 @@
 import type { NextRequest } from "next/server";
 import { z } from "zod";
 import { problem } from "@/lib/api/respond";
-import { guardWrite } from "@/lib/api/guard";
+import { audited } from "@/lib/api/audit";
 import { MAX_BACKUPS, backupsDir, listBackups, restoreBackup } from "@/lib/sources/partners-store";
 
 /** Liste des instantanés automatiques des partenaires. */
@@ -16,13 +16,13 @@ export async function GET() {
 
 const Restore = z.object({ name: z.string(), confirm: z.literal("RESTAURER") });
 
-/** Restaure un instantané. Action sensible : { confirm: "RESTAURER" } ; l'état actuel est sauvegardé avant. */
+/** Restaure un instantané. Niveau 3 : { confirm: "RESTAURER" } et motif ; l'état actuel est sauvegardé avant. */
 export async function POST(req: NextRequest) {
-  const refused = guardWrite(req, { github: false });
-  if (refused) return refused;
-  const parsed = Restore.safeParse(await req.json().catch(() => null));
-  if (!parsed.success) return problem(409, "Confirmation requise", "Taper RESTAURER pour remplacer les fiches actuelles.");
-  const r = await restoreBackup(parsed.data.name);
-  if (!r.ok) return problem(400, "Restauration impossible", r.reason);
-  return Response.json({ ok: true, count: r.count }, { headers: { "Cache-Control": "no-store" } });
+  return audited(req, { action: "partner.restore", level: 3, resource: { type: "partners", id: "all" }, github: false }, async (raw) => {
+    const parsed = Restore.safeParse(raw);
+    if (!parsed.success) return problem(409, "Confirmation requise", "Taper RESTAURER pour remplacer les fiches actuelles.");
+    const r = await restoreBackup(parsed.data.name);
+    if (!r.ok) return problem(400, "Restauration impossible", r.reason);
+    return Response.json({ ok: true, count: r.count }, { headers: { "Cache-Control": "no-store" } });
+  });
 }

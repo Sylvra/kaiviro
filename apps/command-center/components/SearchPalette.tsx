@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowUpRight, CornerDownLeft, Search } from "lucide-react";
-import type { Adr, Decision, Deliverable } from "@/lib/data/plan";
+import type { Adr, Decision } from "@/lib/data/plan";
+import { deliverableFromApi, type ApiDeliverable } from "@/lib/contract";
 import { KIND_LABEL, dataItems, search, staticItems, type SearchItem } from "@/lib/search";
 import { cx } from "./ui";
 
@@ -33,7 +34,7 @@ export function SearchPalette() {
     // Données relues à chaque ouverture : les statuts changent depuis le tableau.
     setLoading(true);
     const [d, dec, adr] = await Promise.all([
-      load<Deliverable>("/api/admin/v1/deliverables"),
+      load<ApiDeliverable>("/api/admin/v1/deliverables").then((xs) => xs.map(deliverableFromApi)),
       load<Decision>("/api/admin/v1/decisions"),
       load<Adr>("/api/admin/v1/adrs"),
     ]);
