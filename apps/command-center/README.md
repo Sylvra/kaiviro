@@ -32,7 +32,7 @@ Le serveur écoute **uniquement sur 127.0.0.1** : pas d'authentification avant C
 
 ## Structure
 
-```
+```text
 app/
   crm/{tableau,planning,equipe,partenaires,decisions}   espace CRM
   ops/[dept]                                            7 départements
