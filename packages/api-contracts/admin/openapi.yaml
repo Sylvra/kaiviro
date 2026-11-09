@@ -1,0 +1,602 @@
+# Squelette de l'API d'administration KAIVIRO.
+# Propriétaire : mission-a (spécification). Implémentation : module admin du backend (mission B).
+# Statut : DRAFT 0.1 — 2026-11-05. Aucun serveur réel déclaré.
+openapi: 3.1.0
+info:
+  title: KAIVIRO Admin API
+  version: 0.1.0
+  summary: API privée du Command Center (accès VPN uniquement).
+  description: |
+    Façade unique du Command Center. Le navigateur ne parle qu'à cette API.
+    Chaque réponse de lecture porte une enveloppe de provenance (source, fetched_at, freshness, demo).
+    Autorisations vérifiées côté serveur : voir docs/security/ADMIN_PERMISSIONS.md.
+    Rôle minimal indiqué par l'extension x-kaiviro-min-role, niveau d'action par x-kaiviro-level.
+  license:
+    name: À définir (ADR-0001, dépôt privé)
+    identifier: LicenseRef-KAIVIRO-Private
+servers:
+  - url: https://admin.kaiviro.invalid/admin/v1
+    description: Placeholder. Aucun domaine réservé (ADR-0013). Accès VPN uniquement (ADR-0012).
+security:
+  - adminSession: []
+tags:
+  - name: sources
+  - name: overview
+  - name: crm
+  - name: infra
+  - name: backups
+  - name: incidents
+  - name: audit
+  - name: development
+paths:
+  /sources:
+    get:
+      tags: [sources]
+      operationId: listSources
+      summary: État des sources S1 à S9
+      x-kaiviro-min-role: viewer
+      x-kaiviro-level: 1
+      responses:
+        "200":
+          description: Registre des sources.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, connected, total]
+                properties:
+                  connected: { type: integer, minimum: 0 }
+                  total: { type: integer, minimum: 0 }
+                  items:
+                    type: array
+                    items: { $ref: "#/components/schemas/Source" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+  /overview:
+    get:
+      tags: [overview]
+      operationId: getOverview
+      summary: Vue de synthèse (Executive Overview)
+      x-kaiviro-min-role: viewer
+      x-kaiviro-level: 1
+      responses:
+        "200":
+          description: Santé agrégée, dernière sauvegarde, dernier déploiement, incidents ouverts.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [services, provenance]
+                properties:
+                  services:
+                    type: array
+                    items: { $ref: "../../schemas/ops/service-health.schema.json" }
+                  last_backup:
+                    oneOf:
+                      - { $ref: "../../schemas/ops/backup-run.schema.json" }
+                      - { type: "null" }
+                  last_deployment:
+                    oneOf:
+                      - { $ref: "../../schemas/ops/deployment.schema.json" }
+                      - { type: "null" }
+                  open_incidents: { type: [integer, "null"], minimum: 0 }
+                  provenance: { $ref: "../../schemas/ops/freshness.schema.json" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+  /deliverables:
+    get:
+      tags: [crm]
+      operationId: listDeliverables
+      summary: Livrables (issues GitHub) par mission
+      x-kaiviro-min-role: viewer
+      x-kaiviro-level: 1
+      parameters:
+        - name: mission
+          in: query
+          schema: { type: string, enum: [a, b, commun] }
+      responses:
+        "200":
+          description: Liste paginée.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DeliverablePage" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+  /deliverables/{id}:
+    patch:
+      tags: [crm]
+      operationId: updateDeliverableStatus
+      summary: Changer le statut d'un livrable (écrit dans GitHub)
+      x-kaiviro-min-role: developer
+      x-kaiviro-level: 2
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status, reason]
+              additionalProperties: false
+              properties:
+                status: { type: string, enum: [todo, in_progress, in_review, done] }
+                reason: { type: string, minLength: 3, maxLength: 500 }
+      responses:
+        "200": { description: Mis à jour. }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { description: Conflit avec l'état GitHub. }
+  /decisions:
+    get:
+      tags: [crm]
+      operationId: listDecisions
+      summary: Décisions ouvertes et tranchées
+      x-kaiviro-min-role: viewer
+      x-kaiviro-level: 1
+      responses:
+        "200":
+          description: Liste.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, provenance]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: "#/components/schemas/Decision" }
+                  provenance: { $ref: "../../schemas/ops/freshness.schema.json" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+  /decisions/{id}/comments:
+    post:
+      tags: [crm]
+      operationId: commentDecision
+      summary: Commenter une décision (commentaire GitHub)
+      x-kaiviro-min-role: developer
+      x-kaiviro-level: 2
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [body]
+              additionalProperties: false
+              properties:
+                body: { type: string, minLength: 1, maxLength: 4000 }
+      responses:
+        "201": { description: Commentaire créé. }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+  /partners:
+    get:
+      tags: [crm]
+      operationId: listPartners
+      x-kaiviro-min-role: administrator
+      x-kaiviro-level: 1
+      responses:
+        "200":
+          description: Liste des partenaires.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, provenance]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: "#/components/schemas/Partner" }
+                  provenance: { $ref: "../../schemas/ops/freshness.schema.json" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+    post:
+      tags: [crm]
+      operationId: createPartner
+      x-kaiviro-min-role: administrator
+      x-kaiviro-level: 2
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PartnerInput" }
+      responses:
+        "201":
+          description: Créé.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Partner" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+  /partners/{id}:
+    parameters:
+      - $ref: "#/components/parameters/Id"
+    get:
+      tags: [crm]
+      operationId: getPartner
+      x-kaiviro-min-role: administrator
+      x-kaiviro-level: 1
+      responses:
+        "200":
+          description: Partenaire.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Partner" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    patch:
+      tags: [crm]
+      operationId: updatePartner
+      x-kaiviro-min-role: administrator
+      x-kaiviro-level: 2
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PartnerInput" }
+      responses:
+        "200": { description: Mis à jour. }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    delete:
+      tags: [crm]
+      operationId: deletePartner
+      summary: Suppression (niveau 3, confirmation renforcée, journalisée)
+      x-kaiviro-min-role: owner
+      x-kaiviro-level: 3
+      parameters:
+        - $ref: "#/components/parameters/Confirmation"
+        - $ref: "#/components/parameters/Reason"
+      responses:
+        "204": { description: Supprimé. }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /infra/pi:
+    get:
+      tags: [infra]
+      operationId: getPiStatus
+      summary: CPU, RAM, température, disque, uptime, throttling de la Pi
+      x-kaiviro-min-role: viewer
+      x-kaiviro-level: 1
+      responses:
+        "200":
+          description: Indicateurs. Valeurs null si la Pi n'est pas installée.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [metrics, provenance]
+                properties:
+                  metrics:
+                    type: array
+                    items: { $ref: "../../schemas/ops/metric.schema.json" }
+                  provenance: { $ref: "../../schemas/ops/freshness.schema.json" }
+  /infra/containers:
+    get:
+      tags: [infra]
+      operationId: listContainers
+      x-kaiviro-min-role: viewer
+      x-kaiviro-level: 1
+      responses:
+        "200":
+          description: Conteneurs connus de l'inventaire Compose et leur état.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, provenance]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: "#/components/schemas/Container" }
+                  provenance: { $ref: "../../schemas/ops/freshness.schema.json" }
+  /infra/containers/{name}/restart:
+    post:
+      tags: [infra]
+      operationId: restartContainer
+      summary: Redémarrer un conteneur de la liste blanche
+      x-kaiviro-min-role: administrator
+      x-kaiviro-level: 2
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [uptime-kuma, prometheus, node-exporter, grafana, cadvisor, loki]
+        - $ref: "#/components/parameters/Confirmation"
+        - $ref: "#/components/parameters/Reason"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "202":
+          description: Action acceptée.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [action_id, status]
+                properties:
+                  action_id: { type: string, format: uuid }
+                  status: { type: string, enum: [queued, running, succeeded, failed] }
+        "403": { $ref: "#/components/responses/Forbidden" }
+  /backups:
+    get:
+      tags: [backups]
+      operationId: listBackupRuns
+      x-kaiviro-min-role: viewer
+      x-kaiviro-level: 1
+      responses:
+        "200":
+          description: Dernières exécutions de sauvegarde et de test de restauration.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, provenance]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: "../../schemas/ops/backup-run.schema.json" }
+                  provenance: { $ref: "../../schemas/ops/freshness.schema.json" }
+  /incidents:
+    get:
+      tags: [incidents]
+      operationId: listIncidents
+      x-kaiviro-min-role: viewer
+      x-kaiviro-level: 1
+      parameters:
+        - name: status
+          in: query
+          schema: { type: string, enum: [open, closed, all], default: open }
+      responses:
+        "200":
+          description: Liste.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: "../../schemas/ops/incident.schema.json" }
+    post:
+      tags: [incidents]
+      operationId: declareIncident
+      x-kaiviro-min-role: administrator
+      x-kaiviro-level: 2
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title, severity, service]
+              additionalProperties: false
+              properties:
+                title: { type: string, minLength: 3, maxLength: 160 }
+                severity: { type: string, enum: [SEV1, SEV2, SEV3, SEV4] }
+                service: { type: string }
+                summary: { type: string, maxLength: 4000 }
+      responses:
+        "201":
+          description: Incident créé.
+          content:
+            application/json:
+              schema: { $ref: "../../schemas/ops/incident.schema.json" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+  /incidents/{id}:
+    patch:
+      tags: [incidents]
+      operationId: updateIncident
+      x-kaiviro-min-role: administrator
+      x-kaiviro-level: 2
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                status: { type: string, enum: [acknowledged, mitigating, resolved, closed] }
+                note: { type: string, maxLength: 2000 }
+                postmortem_url: { type: string }
+      responses:
+        "200": { description: Mis à jour. }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+  /audit:
+    get:
+      tags: [audit]
+      operationId: listAuditEvents
+      x-kaiviro-min-role: owner
+      x-kaiviro-level: 1
+      parameters:
+        - name: since
+          in: query
+          schema: { type: string, format: date-time }
+        - name: cursor
+          in: query
+          schema: { type: string }
+      responses:
+        "200":
+          description: Journal d'audit, ordre antéchronologique.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: "../../schemas/ops/audit-event.schema.json" }
+                  next_cursor: { type: [string, "null"] }
+        "403": { $ref: "#/components/responses/Forbidden" }
+  /dev/pull-requests:
+    get:
+      tags: [development]
+      operationId: listPullRequests
+      x-kaiviro-min-role: viewer
+      x-kaiviro-level: 1
+      responses:
+        "200":
+          description: PR ouvertes, état de CI (S1).
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, provenance]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: "#/components/schemas/PullRequest" }
+                  provenance: { $ref: "../../schemas/ops/freshness.schema.json" }
+components:
+  securitySchemes:
+    adminSession:
+      type: apiKey
+      in: cookie
+      name: kaiviro_admin_session
+      description: Cookie de session HttpOnly, Secure, SameSite=Strict, émis après MFA. Mécanisme final à trancher (ADR-0012).
+  parameters:
+    Id:
+      name: id
+      in: path
+      required: true
+      schema: { type: string, maxLength: 64 }
+    Confirmation:
+      name: X-Kaiviro-Confirm
+      in: header
+      required: true
+      description: Jeton de confirmation à usage unique obtenu après re-saisie MFA (niveau 3) ou confirmation explicite (niveau 2).
+      schema: { type: string, maxLength: 128 }
+    Reason:
+      name: X-Kaiviro-Reason
+      in: header
+      required: true
+      description: Motif de l'action, journalisé.
+      schema: { type: string, minLength: 3, maxLength: 500 }
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema: { type: string, format: uuid }
+  responses:
+    Unauthorized:
+      description: Session absente ou expirée.
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/Problem" }
+    Forbidden:
+      description: Rôle, périmètre ou confirmation insuffisants. Refus journalisé.
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/Problem" }
+    NotFound:
+      description: Ressource inconnue.
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/Problem" }
+    ValidationError:
+      description: Entrée invalide.
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/Problem" }
+  schemas:
+    Problem:
+      description: RFC 9457. Aucun détail interne ni secret.
+      type: object
+      required: [type, title, status]
+      properties:
+        type: { type: string }
+        title: { type: string }
+        status: { type: integer }
+        detail: { type: string }
+        correlation_id: { type: string }
+    Source:
+      type: object
+      required: [id, name, state, provenance]
+      properties:
+        id: { type: string, enum: [S1, S2, S3, S4, S5, S6, S7, S8, S9] }
+        name: { type: string }
+        state: { type: string, enum: [connected, disconnected, error, planned] }
+        phase: { type: string, description: "Phase de branchement prévue, ex. CC-M2." }
+        provenance: { $ref: "../../schemas/ops/freshness.schema.json" }
+    Deliverable:
+      type: object
+      required: [id, title, mission, status, url]
+      properties:
+        id: { type: string }
+        title: { type: string }
+        mission: { type: string, enum: [a, b, commun] }
+        type: { type: [string, "null"] }
+        status: { type: string, enum: [todo, in_progress, in_review, done] }
+        path: { type: [string, "null"], description: Chemin dans le dépôt. }
+        due_on: { type: [string, "null"], format: date }
+        assignee: { type: [string, "null"] }
+        url: { type: string, format: uri }
+    DeliverablePage:
+      type: object
+      required: [items, provenance]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/Deliverable" }
+        next_cursor: { type: [string, "null"] }
+        provenance: { $ref: "../../schemas/ops/freshness.schema.json" }
+    Decision:
+      type: object
+      required: [id, title, status]
+      properties:
+        id: { type: string }
+        title: { type: string }
+        status: { type: string, enum: [open, decided] }
+        adr: { type: [string, "null"], description: "Ex. ADR-0012." }
+        owner: { type: [string, "null"] }
+        url: { type: [string, "null"], format: uri }
+    PartnerInput:
+      type: object
+      required: [type, name, stage]
+      additionalProperties: false
+      properties:
+        type: { type: string, enum: [garage, obd_supplier, beta_tester, other] }
+        name: { type: string, minLength: 1, maxLength: 160 }
+        stage: { type: string, enum: [to_contact, in_discussion, active, paused, closed] }
+        next_action: { type: [string, "null"], maxLength: 500 }
+        due_at: { type: [string, "null"], format: date-time }
+        owner_admin_id: { type: [string, "null"], format: uuid }
+        equipment: { type: [string, "null"], maxLength: 500 }
+        consent_status: { type: string, enum: [not_required, pending, granted, withdrawn] }
+        notes: { type: [string, "null"], maxLength: 4000, description: "Professionnel uniquement. Aucune donnée sensible." }
+    Partner:
+      allOf:
+        - $ref: "#/components/schemas/PartnerInput"
+        - type: object
+          required: [id, created_at, updated_at]
+          properties:
+            id: { type: string, format: uuid }
+            created_at: { type: string, format: date-time }
+            updated_at: { type: string, format: date-time }
+            demo: { type: boolean }
+    Container:
+      type: object
+      required: [name, state]
+      properties:
+        name: { type: string }
+        image: { type: [string, "null"] }
+        state: { type: string, enum: [running, restarting, exited, unknown] }
+        restartable: { type: boolean, description: "true si présent dans la liste blanche." }
+        cpu_ratio: { type: [number, "null"] }
+        memory_bytes: { type: [integer, "null"] }
+    PullRequest:
+      type: object
+      required: [number, title, branch, ci_status]
+      properties:
+        number: { type: integer }
+        title: { type: string }
+        branch: { type: string }
+        draft: { type: boolean }
+        ci_status: { type: string, enum: [success, failure, pending, unknown] }
+        url: { type: string, format: uri }

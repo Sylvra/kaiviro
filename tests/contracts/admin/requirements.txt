@@ -1,0 +1,5 @@
+# Validateurs des contrats admin et ops (CI uniquement). Versions épinglées, relevées sur PyPI le 2026-11-05.
+# Licences : jsonschema (MIT), openapi-spec-validator (Apache-2.0), PyYAML (MIT).
+jsonschema==4.26.0
+openapi-spec-validator==0.9.0
+PyYAML==6.0.3

@@ -1,0 +1,35 @@
+name: Anomalie
+description: Comportement incorrect constaté. Pour une vulnérabilité, utiliser le signalement privé.
+title: "[bug] "
+labels: ["type:bug"]
+body:
+  - type: dropdown
+    id: component
+    attributes:
+      label: Composant
+      options: ["android", "backend", "command-center", "api-admin", "infrastructure", "ci", "docs"]
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Étapes de reproduction
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Attendu / obtenu
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version ou commit
+  - type: checkboxes
+    id: rules
+    attributes:
+      label: Règles
+      options:
+        - label: Aucun secret, jeton, journal brut, VIN ou donnée personnelle collé ici
+          required: true

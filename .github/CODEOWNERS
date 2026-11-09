@@ -1,0 +1,43 @@
+# KAIVIRO — propriétaires de code (indicatif : sans protection de branche, rien n'est bloqué).
+# Mission A (Administration & Opérations) : compte Sylvra.
+# Mission B (Stack applicative) : remplacer <COMPTE_MISSION_B> par le compte GitHub du collègue, puis décommenter.
+
+# Par défaut
+*                                   @Sylvra
+
+# --- Mission A ---
+/.github/                           @Sylvra
+/CONTRIBUTING.md                    @Sylvra
+/SECURITY.md                        @Sylvra
+/apps/command-center/               @Sylvra
+/packages/api-contracts/admin/      @Sylvra
+/packages/schemas/ops/              @Sylvra
+/infrastructure/raspberry-pi/       @Sylvra
+/infrastructure/monitoring/         @Sylvra
+/infrastructure/network/            @Sylvra
+/infrastructure/backups/            @Sylvra
+/docs/command-center/               @Sylvra
+/docs/operations/                   @Sylvra
+/docs/security/                     @Sylvra
+/docs/architecture/ADMIN_ARCHITECTURE.md      @Sylvra
+/docs/architecture/OBSERVABILITY_CONTRACT.md  @Sylvra
+
+# --- Mission B ---
+# /apps/android/                      @<COMPTE_MISSION_B>
+# /services/backend/                  @<COMPTE_MISSION_B>
+# /packages/api-contracts/app/        @<COMPTE_MISSION_B>
+# /packages/schemas/app/              @<COMPTE_MISSION_B>
+# /packages/shared-types/             @<COMPTE_MISSION_B>
+# /packages/diagnostic-rules/         @<COMPTE_MISSION_B>
+# /knowledge/                         @<COMPTE_MISSION_B>
+# /infrastructure/cloud/              @<COMPTE_MISSION_B>
+# /docs/product/                      @<COMPTE_MISSION_B>
+# /docs/automotive/                   @<COMPTE_MISSION_B>
+# /docs/ai/                           @<COMPTE_MISSION_B>
+# /docs/security/APP_SECURITY.md      @<COMPTE_MISSION_B>
+# /docs/security/DATA_CLASSIFICATION.md @<COMPTE_MISSION_B>
+
+# --- Humains ---
+/CLAUDE.md                          @Sylvra
+/README.md                          @Sylvra
+/docs/roadmap/M0_PLAN.md            @Sylvra

@@ -11,8 +11,27 @@
 secrets/
 credentials/
 *.kdbx
+*.keyx
 google-services.json
 GoogleService-Info.plist
+# Clés SSH, WireGuard, age/SOPS, fichiers de mot de passe
+id_rsa*
+id_ecdsa*
+id_ed25519*
+!*.pub
+wg[0-9]*.conf
+*.privatekey
+*.agekey
+keys.txt
+*password*.txt
+*.token
+# Surcharges locales Compose (contiennent souvent des valeurs réelles)
+compose.override.yaml
+docker-compose.override.yml
+# État Terraform éventuel
+*.tfstate
+*.tfstate.*
+.terraform/
 
 # --- Sauvegardes et données utilisateur ---
 backups/*.tar*
