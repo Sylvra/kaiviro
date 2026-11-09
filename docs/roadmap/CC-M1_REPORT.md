@@ -2,8 +2,8 @@
 title: Rapport CC-M1 — Command Center (prototype)
 owner: mission-a
 status: PROPOSED
-version: 0.1
-updated: 2026-11-03
+version: 0.2
+updated: 2026-11-09
 ---
 
 # Rapport CC-M1 — Command Center (prototype)
@@ -19,7 +19,7 @@ Branche `feature/cc-m1-command-center`, démarrée le 03/11/2026 à la demande d
 - **API** `/api/admin/v1/` : `sources`, `overview`, `deliverables` (+ `PATCH /{id}` désactivé, 501), `decisions`, `partners`, `adrs`. Chaque réponse porte `source`, `fetched_at`, `freshness`, `demo`.
 - **Sources** : S1/S2 GitHub branchables par `.env.local` (lecture : issues, branches, PR, `docs/adr`). S3–S9 : déclarées, état « non connectée » partout.
 
-Captures : [`captures/`](captures/) (12 vues desktop, 2 mobiles).
+Captures : 12 vues desktop et 2 mobiles prises lors du parcours Playwright, non versionnées dans le dépôt.
 
 ## 2. Écarts avec la maquette
 
@@ -89,7 +89,27 @@ Aucun template acheté n'est utilisé ni présent. Le style s'inspire du niveau 
 - Kanban long sur « À faire » (17 cartes) : prévoir un repli par mission ou une pagination.
 - Pas de test axe ni de test E2E en CI : à ajouter avec la CI de la mission A (A8).
 
-## 9. Backlog proposé
+## 9. Alignement sur les contrats M0 (2026-11-09)
+
+Après fusion de `develop` (M0 mission A, PR #2), quatre écarts corrigés :
+
+| Écart | Correction |
+|---|---|
+| Enveloppe de provenance hors schéma (`static`, source en texte libre, pas de `unknown_reason`) | `lib/contract.ts` : `source` = `S1`…`S9` ou `ref:<chemin>`, `source_label`, `unknown_reason` déduit ou explicite. Schéma `freshness` v0.2 : `static` et `source_label` ajoutés, enveloppe plate `data` + champs |
+| Écritures N2/N3 sans motif ni audit | `lib/api/audit.ts` : garde, motif obligatoire (`reason` ou `X-Kaiviro-Reason`), journal en ajout seul `data/audit.jsonl` au format `audit-event` (`requested` puis `succeeded`/`denied`/`failed`). 9 routes concernées. Champ « Motif » saisi pour la suppression, l'import et la restauration (N3) |
+| Livrables hors OpenAPI (statut 0–3, `kind`, `days`) | API : statut `todo`/`in_progress`/`in_review`/`done`, `type`, `mission` (`commun`/`a`/`b`/`humains`), `days` en extension. Les labels GitHub `status:*` ne changent pas |
+| Partenaires hors OpenAPI (4 étapes, types courts, pas de conservation) | 5 étapes dont « Clos », types `obd_supplier`/`beta_tester`, consentement `withdrawn` (« Retiré »). Bandeau de conservation (CRM_SPEC §5.8, durées proposées) : rien n'est effacé automatiquement. Le stockage local et l'export gardent le format interne |
+
+Écarts assumés, à valider :
+
+- **Motifs générés** pour les N2 de routine (déplacement sur le tableau, commentaire, interaction) : le motif décrit l'action, il n'est pas saisi. ADMIN_PERMISSIONS demande un motif saisi : à trancher.
+- Acteur d'audit « local-admin » tant que l'authentification n'existe pas (CC-M3).
+- OpenAPI v0.2 régénérée par script : diff large, contenu aligné sur les routes réelles du prototype (`/decisions/{id}` remplace `/decisions/{id}/comments`, ajout des routes partenaires `events`, `import`, `backups`).
+- Type de partenaire `other` retiré du contrat (absent du prototype).
+
+Contrôles : `tsc --noEmit` OK ; `vitest` 12 fichiers, 80 tests OK (17 nouveaux : adaptateurs, conservation, audit) ; `validate_contracts.py` 0 erreur (méta-validation et OpenAPI complète en CI).
+
+## 10. Backlog proposé
 
 - **CC-M1 (suite)** : labels GitHub + création des issues livrables ; écriture du statut (niveau 2) derrière l'auth ; recherche globale ; tests axe et E2E.
 - **CC-M2** : S4 Uptime Kuma, S5 Prometheus/Node Exporter, S6 journal de sauvegarde, S7 contrat de supervision ; alertes.
