@@ -2,8 +2,8 @@
 title: Rapport CC-M1 — Command Center (prototype)
 owner: mission-a
 status: PROPOSED
-version: 0.2
-updated: 2026-11-09
+version: 0.3
+updated: 2026-11-10
 ---
 
 # Rapport CC-M1 — Command Center (prototype)
@@ -121,7 +121,20 @@ Refonte de `/agency` à la demande de Johan (direction « maquette d'architecte 
 
 Contrôles : `tsc` OK ; `vitest` 82 tests OK ; `next build` OK ; parcours Playwright 1440 px (Ivoire, Nuit, sélection de 4 zones, recentrage) et 390 px ; **0 erreur console en production**. Les erreurs « unmount » restantes n'apparaissent qu'en développement (double montage StrictMode de drei `<Html>`).
 
-## 11. Backlog proposé
+## 11. Supervision en direct dans les pages Opérations (2026-11-10)
+
+- **Services systemd (S5)** : Valheim tourne sous systemd, pas en conteneur. Node Exporter avec `--collector.systemd` ; le Command Center lit `node_systemd_unit_state` pour les services filtrés par `PI_SYSTEMD_UNITS` (par défaut : Valheim, Prometheus, Node Exporter, Uptime Kuma, tailscaled, ssh). Route `GET /infra/services`. La section Conteneurs n'apparaît que si cAdvisor répond.
+- **Santé applicative (S7)** : `APP_HEALTH_URL` + `/health/details` au schéma `service-health` (contrat de supervision §3). Statut hors liste fermée = `unknown`. Route `GET /infra/app`.
+- **CI (S1)** : dernière exécution GitHub Actions par workflow et branche (page Development Studio, tuile CI). Le jeton doit avoir « Actions : read », sinon la carte reste « inconnue ».
+- **Journal d'audit** : la page Security & Incidents lit `data/audit.jsonl` (lecture seule, lignes illisibles comptées et ignorées).
+- **Executive Overview** : tuiles de santé calculées (`lib/health.ts`) sur les mêmes instantanés ; l'API `/overview` renvoie les mêmes tuiles. Un moniteur Uptime Kuma introuvable reste inconnu.
+- **Infrastructure** : panneau Raspberry en direct (relu toutes les 15 s), le même que dans l'agence 3D.
+- **Agence 3D** : zone Infrastructure détaillée (services, moniteurs, sauvegarde), indicateur CI dans Development Studio, résumé du journal d'audit dans Security (état toujours inconnu sans registre d'incidents).
+- **Correctif** : erreur d'hydratation React 418 dans le panneau Raspberry dès qu'une mesure arrive (âge calculé avec `Date.now()` au rendu). L'âge relatif n'est calculé qu'après montage.
+
+Contrôles : `tsc` OK ; `vitest` 14 fichiers, 91 tests OK ; `next build` OK ; parcours sur une instance branchée à de fausses sources locales (Prometheus et `/health/details` synthétiques) : hôte, services, application et tuiles en direct, **0 erreur console**. Aucune donnée réelle de la Pi : la supervision n'est pas encore installée.
+
+## 12. Backlog proposé
 
 - **CC-M1 (suite)** : labels GitHub + création des issues livrables ; écriture du statut (niveau 2) derrière l'auth ; recherche globale ; tests axe et E2E.
 - **CC-M2** : S4 Uptime Kuma, S5 Prometheus/Node Exporter, S6 journal de sauvegarde, S7 contrat de supervision ; alertes.
