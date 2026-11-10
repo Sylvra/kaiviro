@@ -1,6 +1,7 @@
 import "server-only";
 import { randomUUID } from "node:crypto";
-import { appendFile, mkdir } from "node:fs/promises";
+import { appendFile, mkdir, readFile } from "node:fs/promises";
+import { parseAuditLines, type AuditLine } from "@/lib/ci";
 import path from "node:path";
 import type { NextRequest } from "next/server";
 import { problem } from "./respond";
@@ -37,6 +38,16 @@ export async function appendAudit(e: Omit<AuditEvent, "id" | "at" | "actor">): P
   await mkdir(path.dirname(file), { recursive: true });
   await appendFile(file, `${JSON.stringify(event)}\n`, "utf8");
   return event;
+}
+
+/** Lecture du journal pour la page Sécurité. Fichier absent : liste vide (aucune action journalisée), pas une erreur. */
+export async function readAudit(limit = 200): Promise<{ lines: AuditLine[]; skipped: number; exists: boolean }> {
+  try {
+    return { ...parseAuditLines(await readFile(auditFile(), "utf8"), limit), exists: true };
+  } catch (e) {
+    if ((e as NodeJS.ErrnoException).code === "ENOENT") return { lines: [], skipped: 0, exists: false };
+    throw e;
+  }
 }
 
 /** Motif de l'action : en-tête X-Kaiviro-Reason (encodé URI) ou champ `reason` du corps. 3 à 500 caractères. */

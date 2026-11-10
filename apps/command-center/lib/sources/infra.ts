@@ -1,7 +1,7 @@
 import "server-only";
 import { unstable_rethrow } from "next/navigation";
 import type { Sourced } from "./types";
-import { PROMQL, first, mergeContainers, parseKuma, parseMatrix, parseVector, type BackupRun, type Container, type Monitor, type PiHost } from "@/lib/infra";
+import { PROMQL, first, mergeContainers, parseHealth, parseKuma, parseMatrix, parseUnits, parseVector, unitsQuery, type AppHealth, type BackupRun, type Container, type Monitor, type PiHost, type Unit } from "@/lib/infra";
 
 /**
  * Connecteurs de supervision de la Pi, lus côté serveur par le Command Center (via le VPN en production).
@@ -10,12 +10,18 @@ import { PROMQL, first, mergeContainers, parseKuma, parseMatrix, parseVector, ty
  */
 const env = (k: string) => process.env[k]?.trim().replace(/\/+$/, "") || null;
 
+/** Services suivis par défaut : Valheim, la pile de supervision, le VPN et SSH. */
+export const DEFAULT_UNITS = "valheim.*|prometheus.*|uptime-kuma|tailscaled|ssh";
+
 export function infraConfig() {
   return {
     prometheus: env("PROMETHEUS_URL"),
     kuma: env("UPTIME_KUMA_URL"),
     kumaPage: env("UPTIME_KUMA_STATUS_PAGE"),
     backup: env("BACKUP_STATUS_URL"),
+    app: env("APP_HEALTH_URL"),
+    /** expression régulière des services systemd suivis (noms sans .service) */
+    units: process.env.PI_SYSTEMD_UNITS?.trim() || DEFAULT_UNITS,
   };
 }
 
@@ -88,16 +94,39 @@ export async function getLastBackup(): Promise<Sourced<BackupRun>> {
   return live(j as BackupRun, "S6 · journal de sauvegarde");
 }
 
+/** Services systemd (Node Exporter --collector.systemd), filtrés par PI_SYSTEMD_UNITS. */
+export async function getServices(): Promise<Sourced<Unit[]>> {
+  const { prometheus: base, units } = infraConfig();
+  if (!base) return unknown("S5 · systemd (PROMETHEUS_URL absent)");
+  const j = await promQuery(base, unitsQuery(units));
+  if (j === null) return unknown("S5 · systemd (injoignable)");
+  return live(parseUnits(parseVector(j)), "S5 · Node Exporter · systemd");
+}
+
+/** S7 : /health/details du backend (contrat de supervision §3), lu via le VPN. */
+export async function getAppHealth(): Promise<Sourced<AppHealth>> {
+  const base = infraConfig().app;
+  if (!base) return unknown("S7 · contrat de supervision (APP_HEALTH_URL absent)");
+  const h = parseHealth(await getJson(`${base}/health/details`));
+  if (!h) return unknown("S7 · contrat de supervision (injoignable ou hors schéma)");
+  return live(h, "S7 · /health/details");
+}
+
 export interface InfraSnapshot {
   host: Sourced<PiHost>;
   containers: Sourced<Container[]>;
   monitors: Sourced<Monitor[]>;
   backup: Sourced<BackupRun>;
-  configured: { prometheus: boolean; kuma: boolean; backup: boolean };
+  services: Sourced<Unit[]>;
+  app: Sourced<AppHealth>;
+  configured: { prometheus: boolean; kuma: boolean; backup: boolean; app: boolean };
 }
 
 export async function getInfra(): Promise<InfraSnapshot> {
   const c = infraConfig();
-  const [host, containers, monitors, backup] = await Promise.all([getPiHost(), getContainers(), getMonitors(), getLastBackup()]);
-  return { host, containers, monitors, backup, configured: { prometheus: Boolean(c.prometheus), kuma: Boolean(c.kuma && c.kumaPage), backup: Boolean(c.backup) } };
+  const [host, containers, monitors, backup, services, app] = await Promise.all([getPiHost(), getContainers(), getMonitors(), getLastBackup(), getServices(), getAppHealth()]);
+  return {
+    host, containers, monitors, backup, services, app,
+    configured: { prometheus: Boolean(c.prometheus), kuma: Boolean(c.kuma && c.kumaPage), backup: Boolean(c.backup), app: Boolean(c.app) },
+  };
 }

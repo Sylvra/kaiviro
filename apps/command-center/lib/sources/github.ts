@@ -142,6 +142,11 @@ export async function listOpenPulls() {
   return gh<GhPull[]>(`/repos/${process.env.GITHUB_REPO}/pulls?state=open&per_page=50`);
 }
 
+/** Exécutions GitHub Actions. Le jeton doit avoir « Actions : read » ; sinon 403 et la carte CI reste « inconnue ». */
+export async function listWorkflowRuns() {
+  return gh<unknown>(`/repos/${process.env.GITHUB_REPO}/actions/runs?per_page=30`, 60);
+}
+
 export interface GhContent { name: string; path: string; download_url: string | null; type: string }
 export async function listAdrFiles(ref = "develop") {
   return gh<GhContent[]>(`/repos/${process.env.GITHUB_REPO}/contents/docs/adr?ref=${ref}`);

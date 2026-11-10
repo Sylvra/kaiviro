@@ -1,14 +1,23 @@
 import { notFound } from "next/navigation";
-import { Ban, FolderClosed, GitBranch, ShieldCheck } from "lucide-react";
+import { Ban, CircleCheck, CircleDashed, CircleX, FolderClosed, GitBranch, LoaderCircle, ShieldCheck } from "lucide-react";
 import { PiIcon } from "@/components/Board";
+import { LiveInfra } from "@/components/LiveInfra";
 import { TONE } from "@/components/tone";
 import { Panel, PanelTitle, Pill, SourceNote, UnknownTile, cx } from "@/components/ui";
 import {
-  AGENTS, CLOUD, COMPAT_COLUMNS, CONTAINERS, DEPARTMENTS, EVAL_DIMENSIONS, FORBIDDEN, HEALTH_CHECKS, NETWORK,
-  PERMISSIONS, PI_GAUGES, PI_SPECS, REPO_DOCS, SEVERITIES, VAULT_FOLDERS, type DeptKey, type Tone,
+  AGENTS, CLOUD, COMPAT_COLUMNS, DEPARTMENTS, EVAL_DIMENSIONS, FORBIDDEN, NETWORK,
+  PERMISSIONS, PI_SPECS, REPO_DOCS, SEVERITIES, VAULT_FOLDERS, type DeptKey, type Tone,
 } from "@/lib/data/ops";
-import { getAdrs, getBranches, getOpenPullCount } from "@/lib/queries";
+import { getAdrs, getBranches, getCiRuns, getOpenPullCount } from "@/lib/queries";
+import { getInfra } from "@/lib/sources/infra";
+import { readAudit } from "@/lib/api/audit";
+import { healthTiles, type HealthTile } from "@/lib/health";
+import { hostHealth, type Health } from "@/lib/infra";
+import type { RunState } from "@/lib/ci";
 import { getSourceStatuses } from "@/lib/sources/registry";
+
+/** Rendu à chaque requête : santé, CI et audit sont lus en direct. */
+export const dynamic = "force-dynamic";
 
 export function generateStaticParams() {
   return DEPARTMENTS.map((d) => ({ dept: d.key }));
@@ -25,6 +34,35 @@ const WHEN_TONE: Record<string, Tone> = { "Socle futur": "sky", "MVP+": "mint", 
 function Th({ children }: { children: React.ReactNode }) {
   return <th scope="col" className="border-b border-line-soft px-2 py-2 text-left text-[11px] font-semibold uppercase tracking-[0.06em] text-ink-3">{children}</th>;
 }
+const STATE: Record<Health, { label: string; tone: Tone; card: string }> = {
+  ok: { label: "OK", tone: "mint", card: "border-[#d3eee3] bg-[#eaf7f2]" },
+  warn: { label: "À surveiller", tone: "amber", card: "border-[#f3e2b3] bg-[#fff6de]" },
+  alert: { label: "Alerte", tone: "coral", card: "border-[#f5d3c6] bg-[#fdeee8]" },
+  unknown: { label: "Inconnu", tone: "neutral", card: "border-line bg-surface-2" },
+};
+
+function HealthCard({ t }: { t: HealthTile }) {
+  const st = STATE[t.state];
+  return (
+    <article className={cx("flex flex-col gap-2 rounded-[18px] border p-4", st.card)}>
+      <div className="flex items-center justify-between gap-2"><span className="text-[13px] font-semibold">{t.label}</span><Pill tone={st.tone} dot={t.state !== "unknown"}>{st.label}</Pill></div>
+      <span className={cx("font-display text-2xl font-bold leading-none", !t.live && "text-ghost")} aria-label={t.live ? undefined : "valeur inconnue"}>{t.value}</span>
+      <span data-source={t.source} className="text-xs text-ink-3">Source : {t.source}</span>
+      {!t.live && <span className="font-mono text-[11px] text-ink-3">jamais mesuré</span>}
+    </article>
+  );
+}
+
+const RUN: Record<RunState, { label: string; icon: typeof CircleCheck; cls: string }> = {
+  success: { label: "réussie", icon: CircleCheck, cls: "text-mint-ink" },
+  failure: { label: "en échec", icon: CircleX, cls: "text-coral-ink" },
+  running: { label: "en cours", icon: LoaderCircle, cls: "text-sky-ink" },
+  cancelled: { label: "annulée", icon: CircleDashed, cls: "text-ink-3" },
+  other: { label: "autre", icon: CircleDashed, cls: "text-ink-3" },
+};
+const OUTCOME_TONE: Record<string, Tone> = { succeeded: "mint", requested: "sky", denied: "amber", failed: "coral" };
+const when = (iso: string) => new Date(iso).toLocaleString("fr-FR", { timeZone: "Europe/Paris", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+
 function Td({ children, className }: { children: React.ReactNode; className?: string }) {
   return <td className={cx("border-b border-[#f4f0ea] px-2 py-2.5", className)}>{children}</td>;
 }
@@ -56,20 +94,20 @@ export default async function Page({ params }: { params: Promise<{ dept: string 
 async function renderDept(key: DeptKey) {
   switch (key) {
     case "overview": {
-      const sources = await getSourceStatuses();
+      const [sources, infra, ci] = await Promise.all([getSourceStatuses(), getInfra(), getCiRuns()]);
+      const tiles = healthTiles({ ...infra, ci });
       return (
         <>
-          <div className="grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(190px,1fr))]">
-            {HEALTH_CHECKS.map((h) => <UnknownTile key={h.name} label={h.name} source={h.source} />)}
+          <div className="grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(200px,1fr))]">
+            {tiles.map((t) => <HealthCard key={t.label} t={t} />)}
           </div>
           <div className="grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(260px,1fr))]">
             {[
-              { label: "Dernier backup", value: "Aucun", note: "Restauration jamais testée · prévue J9", cls: "border-[#f3e2b3] bg-[#fff6de]", ink: "text-amber-ink", src: "S6 · journal de sauvegarde" },
-              { label: "Dernier déploiement", value: "Aucun", note: "Aucun pipeline de déploiement en M0", cls: "border-line bg-surface-2", ink: "text-ink-2", src: "S1 · GitHub releases" },
-              { label: "Incidents ouverts", value: "0 enregistré", note: "Registre des incidents en CC-M3", cls: "border-[#d3eee3] bg-[#eaf7f2]", ink: "text-mint-ink", src: "S8 · admin.incidents" },
+              { label: "Dernier déploiement", value: "Aucun", note: "Aucun pipeline de déploiement en M0", src: "S1 · GitHub releases" },
+              { label: "Incidents ouverts", value: "Registre absent", note: "Registre des incidents en CC-M3 : rien n’est compté avant", src: "S8 · admin.incidents" },
             ].map((c) => (
-              <article key={c.label} className={cx("flex flex-col gap-1.5 rounded-[18px] border p-4", c.cls)}>
-                <span className={cx("text-xs font-semibold", c.ink)}>{c.label}</span>
+              <article key={c.label} className="flex flex-col gap-1.5 rounded-[18px] border border-line bg-surface-2 p-4">
+                <span className="text-xs font-semibold text-ink-2">{c.label}</span>
                 <span className="font-display text-[22px] font-bold">{c.value}</span>
                 <span className="text-xs text-ink-2">{c.note}</span>
                 <span data-source={c.src} className="font-mono text-[11px] text-ink-3">{c.src}</span>
@@ -98,24 +136,19 @@ async function renderDept(key: DeptKey) {
         </>
       );
     }
-    case "infrastructure":
+    case "infrastructure": {
+      const infra = await getInfra();
+      const health = hostHealth(infra.host.value);
       return (
         <>
-          <div className="flex flex-wrap gap-3.5">
+          <div className="flex flex-wrap items-start gap-3.5">
             <section className="flex min-w-0 flex-[999_1_520px] flex-col gap-4 rounded-[var(--radius-panel)] border border-[#d3eee3] bg-gradient-to-br from-[#eaf7f2] to-[#f6fbf9] p-5">
               <div className="flex flex-wrap items-center gap-3.5">
                 <PiIcon size={52} />
                 <div className="flex flex-1 flex-col gap-0.5"><h2 className="text-lg font-bold">Raspberry Pi 5 — centre d’administration</h2><span className="font-mono text-xs text-ink-2">{PI_SPECS}</span></div>
-                <Pill tone="coral">Non installée</Pill>
+                <Pill tone={STATE[health].tone} dot={health !== "unknown"}>{health === "unknown" ? "Non supervisée" : STATE[health].label}</Pill>
               </div>
-              <div className="grid gap-2.5 [grid-template-columns:repeat(auto-fit,minmax(130px,1fr))]">
-                {PI_GAUGES.map((g) => (
-                  <div key={g} className="flex items-center gap-3 rounded-2xl border border-[#e3f1eb] bg-white p-3.5">
-                    <svg width="46" height="46" viewBox="0 0 40 40" aria-hidden><circle cx="20" cy="20" r="15" fill="none" stroke="#EFE9E1" strokeWidth="5" strokeDasharray="4 3.85" /></svg>
-                    <span className="flex flex-col leading-tight"><span className="text-xs text-ink-3">{g}</span><span className="font-display text-lg font-bold text-ghost" aria-label="valeur inconnue">—</span><span data-source="S5 · Node Exporter" className="text-[11px] text-ink-3">S5 · Node Exporter</span></span>
-                  </div>
-                ))}
-              </div>
+              <div className="rounded-2xl border border-[#e3f1eb] bg-white p-4"><LiveInfra initial={infra} /></div>
             </section>
             <Panel tone="soft" className="flex-[1_1_280px]">
               <PanelTitle>Réseau</PanelTitle>
@@ -127,17 +160,6 @@ async function renderDept(key: DeptKey) {
               ))}
             </Panel>
           </div>
-          <Panel>
-            <PanelTitle aside="Cahier des charges §12.2 · appliqués par Johan">Conteneurs de la Pi</PanelTitle>
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[620px] border-collapse text-[13px]">
-                <thead><tr><Th>Composant</Th><Th>Rôle</Th><Th>Phase</Th><Th>État</Th></tr></thead>
-                <tbody>{CONTAINERS.map((c) => (
-                  <tr key={c.name} className="transition-colors hover:bg-surface-2"><Td className="font-semibold">{c.name}</Td><Td className="text-ink-2">{c.role}</Td><Td><Pill tone={PHASE_TONE[c.phase]} className="font-mono">{c.phase}</Pill></Td><Td className="text-xs text-ink-3">planifié</Td></tr>
-                ))}</tbody>
-              </table>
-            </div>
-          </Panel>
           <div className="grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(220px,1fr))]">
             {CLOUD.map((c) => (
               <article key={c.name} className="flex flex-col gap-1.5 rounded-[18px] border border-dashed border-[#dcd5cb] bg-surface-2 p-4">
@@ -149,6 +171,7 @@ async function renderDept(key: DeptKey) {
           </div>
         </>
       );
+    }
     case "ai":
       return (
         <>
@@ -193,7 +216,8 @@ async function renderDept(key: DeptKey) {
         </>
       );
     case "development": {
-      const [branches, pulls] = await Promise.all([getBranches(), getOpenPullCount()]);
+      const [branches, pulls, ci] = await Promise.all([getBranches(), getOpenPullCount(), getCiRuns()]);
+      const red = ci.value?.filter((r) => r.state === "failure").length ?? 0;
       return (
         <>
           <div className="flex flex-wrap gap-3.5">
@@ -210,11 +234,34 @@ async function renderDept(key: DeptKey) {
             </Panel>
             <div className="grid min-w-0 flex-[1_1_300px] grid-cols-2 gap-2.5">
               <article className="flex flex-col gap-1.5 rounded-[18px] border border-line bg-surface-2 p-4"><span className="text-xs text-ink-3">Pull requests ouvertes</span><span className={cx("font-display text-2xl font-bold", pulls.value === null && "text-ghost")}>{pulls.value ?? "—"}</span><SourceNote s={pulls} /></article>
-              <article className="flex flex-col gap-1.5 rounded-[18px] border border-line bg-surface-2 p-4"><span className="text-xs text-ink-3">CI</span><span className="font-display text-2xl font-bold text-ghost">—</span><span data-source="S1 · GitHub Actions" className="text-xs text-ink-2">workflow à créer (Mission A · A8)</span></article>
+              <article className="flex flex-col gap-1.5 rounded-[18px] border border-line bg-surface-2 p-4"><span className="text-xs text-ink-3">CI</span><span className={cx("font-display text-2xl font-bold", ci.value === null ? "text-ghost" : red ? "text-coral-ink" : "text-mint-ink")}>{ci.value === null ? "—" : red ? `${red} en échec` : ci.value.length ? "verte" : "aucune"}</span><SourceNote s={ci} /></article>
               <article className="flex flex-col gap-1.5 rounded-[18px] border border-line bg-surface-2 p-4"><span className="text-xs text-ink-3">Dernière release</span><span className="font-display text-2xl font-bold">aucune</span><span data-source="S1 · GitHub releases" className="text-xs text-ink-2">cible : tag m0.1.0</span></article>
               <article className="flex flex-col gap-1.5 rounded-[18px] border border-line bg-surface-2 p-4"><span className="text-xs text-ink-3">Tickets M1</span><span className="font-display text-2xl font-bold text-ghost">—</span><span data-source="S1 · GitHub issues" className="text-xs text-ink-2">backlog en fin de M0</span></article>
             </div>
           </div>
+          <Panel>
+            <PanelTitle aside={<SourceNote s={ci} />}>Intégration continue · dernière exécution par workflow et branche</PanelTitle>
+            {ci.value === null ? (
+              <p className="text-[13px] text-ink-3">Inconnu : ajouter la permission « Actions : read » au jeton GitHub de <code className="font-mono text-xs">.env.local</code> pour lire les exécutions.</p>
+            ) : ci.value.length === 0 ? <p className="text-[13px] text-ink-3">Aucune exécution trouvée.</p> : (
+              <ul className="flex flex-col divide-y divide-line-soft">
+                {ci.value.map((r) => {
+                  const st = RUN[r.state];
+                  return (
+                    <li key={r.id}>
+                      <a href={r.url} target="_blank" rel="noreferrer" className="flex items-center gap-2.5 rounded-[10px] px-2 py-2.5 text-[13px] transition-colors hover:bg-surface-2">
+                        <st.icon size={16} className={cx("shrink-0", st.cls)} aria-label={st.label} />
+                        <span className="font-semibold">{r.workflow}</span>
+                        <span className="min-w-0 flex-1 truncate font-mono text-xs text-ink-2">{r.branch}</span>
+                        <span className="text-xs text-ink-3">{r.event}</span>
+                        <span className="w-24 text-right text-xs tabular-nums text-ink-3">{when(r.startedAt)}</span>
+                      </a>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </Panel>
           <Panel>
             <PanelTitle>Projets du monorepo</PanelTitle>
             <div className="grid gap-2.5 [grid-template-columns:repeat(auto-fit,minmax(200px,1fr))]">
@@ -268,7 +315,8 @@ async function renderDept(key: DeptKey) {
         </div>
       );
     }
-    case "security":
+    case "security": {
+      const audit = await readAudit(100);
       return (
         <>
           <div className="flex flex-wrap items-stretch gap-3.5">
@@ -285,6 +333,28 @@ async function renderDept(key: DeptKey) {
             </Panel>
           </div>
           <Panel>
+            <PanelTitle aside={<span className="font-mono text-[11px] text-ink-3">data/audit.jsonl · ajout seul{audit.skipped ? ` · ${audit.skipped} ligne(s) illisible(s)` : ""}</span>}>Journal d’audit · écritures N2 et N3</PanelTitle>
+            {audit.lines.length === 0 ? (
+              <p className="text-[13px] text-ink-3">{audit.exists ? "Journal vide." : "Aucune écriture journalisée pour l’instant : le fichier sera créé à la première action N2 ou N3."}</p>
+            ) : (
+              <div className="max-h-[420px] overflow-auto">
+                <table className="w-full min-w-[720px] border-collapse text-[13px]">
+                  <thead className="sticky top-0 bg-white"><tr><Th>Quand</Th><Th>Action</Th><Th>Niveau</Th><Th>Ressource</Th><Th>Résultat</Th><Th>Motif</Th></tr></thead>
+                  <tbody>{audit.lines.map((l) => (
+                    <tr key={l.id} className="transition-colors hover:bg-surface-2">
+                      <Td className="whitespace-nowrap font-mono text-xs text-ink-2">{when(l.at)}</Td>
+                      <Td className="font-mono text-xs">{l.action}</Td>
+                      <Td><Pill tone={l.level >= 3 ? "coral" : "sky"} className="font-mono">N{l.level}</Pill></Td>
+                      <Td className="font-mono text-xs text-ink-2">{l.resource}</Td>
+                      <Td><Pill tone={OUTCOME_TONE[l.outcome] ?? "neutral"}>{l.outcome}</Pill></Td>
+                      <Td className="max-w-[260px] truncate text-xs text-ink-2">{l.reason ?? "—"}</Td>
+                    </tr>
+                  ))}</tbody>
+                </table>
+              </div>
+            )}
+          </Panel>
+          <Panel>
             <PanelTitle aside="Appliquées côté serveur · ADMIN_PERMISSIONS · ADR-0012">Permissions administrateurs</PanelTitle>
             <div className="overflow-x-auto">
               <table className="w-full min-w-[640px] border-collapse text-[13px]">
@@ -297,6 +367,7 @@ async function renderDept(key: DeptKey) {
           </Panel>
         </>
       );
+    }
   }
 }
 

@@ -42,6 +42,12 @@ export interface AgencyInput {
   /** santé de l'hôte Pi (lib/infra hostHealth) et résumé, si S5 répond */
   piHealth?: ZoneState;
   piSummary?: string;
+  /** détail Pi : services systemd (S5), moniteurs (S4), dernière sauvegarde (S6) ; null = source muette */
+  pi?: { units: { name: string; state: string }[] | null; monitors: { up: number; total: number } | null; backup: string | null };
+  /** dernière exécution par workflow (S1 · Actions) ; null = non lisible */
+  ci?: { failures: number; total: number } | null;
+  /** journal d'audit local : lignes et refus ; null = absent */
+  audit?: { total: number; denied: number } | null;
   /**
    * false si les livrables / décisions viennent du document de référence (GitHub non connecté) :
    * la zone reste « inconnu », jamais « OK » sur la foi d'un plan.
@@ -116,10 +122,18 @@ export function buildAgency(d: AgencyInput): AgencyModel {
       "/ops/knowledge", "S2 · docs/adr"),
     zone("infra", "Infrastructure · Pi", d.piHealth ?? (connected(d.sources, "S5") ? "ok" : "unknown"),
       d.piSummary ?? (connected(d.sources, "S5") ? "Supervision branchée" : "Pi non supervisée : aucune métrique"),
-      ["Uptime Kuma (S4), Node Exporter (S5), sauvegardes (S6) : non connectés", "Installation prévue J7–J9 par Johan"], "/ops/infrastructure", "S4 · S5 · S6"),
+      [
+        d.pi?.units ? `Services : ${d.pi.units.map((u) => `${u.name} ${u.state === "active" ? "✓" : `(${u.state})`}`).join(", ") || "aucun suivi"}` : "Services systemd (S5) : non lus",
+        d.pi?.monitors ? `Disponibilité : ${d.pi.monitors.up}/${d.pi.monitors.total} moniteur(s) en ligne` : "Uptime Kuma (S4) : non connecté",
+        d.pi?.backup ? `Sauvegarde : ${d.pi.backup}` : "Journal de sauvegarde (S6) : non connecté",
+      ], "/ops/infrastructure", "S4 · S5 · S6"),
     zone("ai", "AI Laboratory", "unknown", "Aucune donnée avant M5", ["Indicateurs agrégés seulement, jamais le contenu des conversations"], "/ops/ai", "S7 · contrat de supervision"),
     zone("auto", "Automotive", "unknown", "Essais réels en M2", ["Aucune compatibilité ni règle inventée"], "/ops/automotive", "Mission B"),
-    zone("security", "Security & Incidents", "unknown", "Audit et incidents en CC-M3", ["Journal d’audit non branché (S8)"], "/ops/security", "S8 · audit"),
+    // Incidents : registre absent avant CC-M3, donc l'état reste inconnu même si le journal d'audit existe.
+    zone("security", "Security & Incidents", "unknown",
+      d.audit ? `${d.audit.total} action(s) journalisée(s) · ${d.audit.denied} refus` : "Aucune écriture journalisée",
+      [d.audit ? "Journal d’audit local : data/audit.jsonl (ajout seul)" : "Journal d’audit : vide ou absent", "Registre des incidents en CC-M3 (S8)"],
+      "/ops/security", "Audit local · S8"),
   ];
 
   // Indicateurs et répartitions : chaque valeur vient des mêmes entrées que le résumé, « — » si la source manque.
@@ -166,6 +180,7 @@ export function buildAgency(d: AgencyInput): AgencyModel {
       kpis: [
         { label: "PR ouvertes", value: s1 ? dash(d.openPulls) : "—" },
         { label: "Branches de mission", value: d.branches ? String(d.branches.filter((b) => b.exists).length) : "—" },
+        { label: "CI en échec", value: d.ci ? `${d.ci.failures}/${d.ci.total}` : "—" },
       ],
       breakdown: [],
     },
@@ -183,8 +198,15 @@ export function buildAgency(d: AgencyInput): AgencyModel {
       ],
     },
     infra: {
-      kpis: [{ label: "Sources de supervision", value: `${["S4", "S5", "S6"].filter((id) => connected(d.sources, id)).length}/3` }],
-      breakdown: [],
+      kpis: [
+        { label: "Sources de supervision", value: `${["S4", "S5", "S6"].filter((id) => connected(d.sources, id)).length}/3` },
+        { label: "Services actifs", value: d.pi?.units ? `${d.pi.units.filter((u) => u.state === "active").length}/${d.pi.units.length}` : "—" },
+      ],
+      breakdown: d.pi?.units ? [
+        { label: "Actifs", count: d.pi.units.filter((u) => u.state === "active").length, tone: "mint" },
+        { label: "En échec", count: d.pi.units.filter((u) => u.state === "failed").length, tone: "coral" },
+        { label: "Autres", count: d.pi.units.filter((u) => u.state !== "active" && u.state !== "failed").length, tone: "neutral" },
+      ] : [],
     },
   };
   for (const z of zones) Object.assign(z, extra[z.id] ?? {});

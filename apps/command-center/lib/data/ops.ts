@@ -3,7 +3,7 @@ export type DeptKey = "overview" | "infrastructure" | "ai" | "automotive" | "dev
 
 export const DEPARTMENTS: { key: DeptKey; num: string; name: string; goal: string; phase: string; tone: Tone }[] = [
   { key: "overview", num: "01", name: "Executive Overview", goal: "Santé globale, sauvegardes, déploiements et incidents prioritaires.", phase: "Données réelles en CC-M2", tone: "coral" },
-  { key: "infrastructure", num: "02", name: "Infrastructure", goal: "Raspberry Pi, conteneurs, cloud, réseau et certificats.", phase: "Pi installée J7–J9 · CC-M2", tone: "mint" },
+  { key: "infrastructure", num: "02", name: "Infrastructure", goal: "Raspberry Pi, conteneurs, cloud, réseau et certificats.", phase: "Supervision S4–S7 · CC-M2", tone: "mint" },
   { key: "ai", num: "03", name: "AI Laboratory", goal: "Modèles, agents, RAG et évaluation, en statistiques agrégées.", phase: "Données à partir de M5", tone: "lavender" },
   { key: "automotive", num: "04", name: "Automotive", goal: "Catalogue véhicules, compatibilité OBD, règles et codes défauts.", phase: "Essais réels en M2", tone: "amber" },
   { key: "development", num: "05", name: "Development Studio", goal: "Dépôts, branches, PR, CI, releases et tickets.", phase: "GitHub · CC-M1", tone: "sky" },

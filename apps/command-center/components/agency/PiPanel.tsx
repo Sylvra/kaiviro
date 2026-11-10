@@ -1,14 +1,16 @@
 "use client";
 
-import { Activity, Archive, Box, Cpu, Server, Thermometer } from "lucide-react";
-import { fmtBytes, fmtDuration, hostHealth, type BackupRun, type Container, type Monitor, type PiHost, type Point } from "@/lib/infra";
+import { useEffect, useState } from "react";
+import { Activity, AppWindow, Archive, Box, Cpu, Server, Settings2, Thermometer } from "lucide-react";
+import { fmtBytes, fmtDuration, hostHealth, type AppHealth, type AppStatus, type BackupRun, type Container, type Monitor, type PiHost, type Point, type Unit } from "@/lib/infra";
 import { cx } from "../ui";
 
 /** Instantané sérialisable renvoyé par /api/admin/v1/infra/snapshot. */
 export interface Snap<T> { value: T | null; source: string; fetchedAt: string | null; freshness: string }
 export interface InfraView {
   host: Snap<PiHost>; containers: Snap<Container[]>; monitors: Snap<Monitor[]>; backup: Snap<BackupRun>;
-  configured: { prometheus: boolean; kuma: boolean; backup: boolean };
+  services: Snap<Unit[]>; app: Snap<AppHealth>;
+  configured: { prometheus: boolean; kuma: boolean; backup: boolean; app: boolean };
 }
 
 const HEALTH = {
@@ -51,10 +53,24 @@ function Spark({ points, color, max }: { points: Point[]; color: string; max?: n
   );
 }
 
+const UNIT_DOT: Record<Unit["state"], string> = {
+  active: "bg-mint-dot", activating: "bg-sky-dot", deactivating: "bg-amber-dot", inactive: "bg-[#b9b3aa]", failed: "bg-coral-dot", unknown: "bg-[#b9b3aa]",
+};
+const UNIT_LABEL: Record<Unit["state"], string> = {
+  active: "actif", activating: "démarrage", deactivating: "arrêt en cours", inactive: "arrêté", failed: "en échec", unknown: "inconnu",
+};
+const APP_DOT: Record<AppStatus, string> = { ok: "bg-mint-dot", degraded: "bg-amber-dot", down: "bg-coral-dot", unknown: "bg-[#b9b3aa]" };
+const APP_LABEL: Record<AppStatus, string> = { ok: "OK", degraded: "dégradé", down: "en panne", unknown: "inconnu" };
+
 const pct = (v: number | null) => (v === null ? "—" : `${Math.round(v * 100)} %`);
-const ago = (iso: string | null) => {
+/**
+ * Âge d'une mesure. Avant le montage (rendu serveur et hydratation), heure absolue en Europe/Paris :
+ * Date.now() pendant le rendu donnerait un texte différent côté serveur et navigateur (erreur React 418).
+ */
+const ago = (iso: string | null, now: number | null) => {
   if (!iso) return "jamais";
-  const s = Math.round((Date.now() - Date.parse(iso)) / 1000);
+  if (now === null) return `à ${new Date(iso).toLocaleTimeString("fr-FR", { timeZone: "Europe/Paris" })}`;
+  const s = Math.max(0, Math.round((now - Date.parse(iso)) / 1000));
   return s < 60 ? `il y a ${s} s` : s < 3600 ? `il y a ${Math.round(s / 60)} min` : `il y a ${Math.round(s / 3600)} h`;
 };
 
@@ -74,6 +90,13 @@ export function PiPanel({ infra, refreshing }: { infra: InfraView; refreshing: b
   const h = infra.host.value;
   const health = hostHealth(h);
   const nothing = !infra.configured.prometheus && !infra.configured.kuma && !infra.configured.backup;
+  const containers = infra.containers.value;
+  const [now, setNow] = useState<number | null>(null);
+  useEffect(() => {
+    setNow(Date.now());
+    const id = window.setInterval(() => setNow(Date.now()), 5_000);
+    return () => window.clearInterval(id);
+  }, []);
 
   return (
     <div className="flex flex-col gap-4">
@@ -81,7 +104,7 @@ export function PiPanel({ infra, refreshing }: { infra: InfraView; refreshing: b
         <span className="grid size-9 place-items-center rounded-[10px] bg-ink text-white"><Server size={16} aria-hidden /></span>
         <div className="flex min-w-0 flex-1 flex-col">
           <span className="text-[15px] font-bold">Raspberry Pi 5</span>
-          <span className="text-[11px] text-ink-3">{infra.host.fetchedAt ? `Mis à jour ${ago(infra.host.fetchedAt)}${refreshing ? " · actualisation…" : " · toutes les 15 s"}` : "Aucune mesure reçue"}</span>
+          <span className="text-[11px] text-ink-3">{infra.host.fetchedAt ? `Mis à jour ${ago(infra.host.fetchedAt, now)}${refreshing ? " · actualisation…" : " · toutes les 15 s"}` : "Aucune mesure reçue"}</span>
         </div>
         <span className={cx("inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-semibold", HEALTH[health].cls)}><span className={cx("size-1.5 rounded-full", HEALTH[health].dot)} />{HEALTH[health].label}</span>
       </div>
@@ -90,8 +113,8 @@ export function PiPanel({ infra, refreshing }: { infra: InfraView; refreshing: b
         <div className="flex flex-col gap-2 rounded-[14px] border border-dashed border-line p-3 text-[13px]">
           <span className="font-semibold">Brancher la supervision</span>
           <ol className="flex list-decimal flex-col gap-1.5 pl-4 text-ink-2">
-            <li>Sur la Pi (Johan) : installer la pile <code className="font-mono text-[12px]">infrastructure/monitoring</code> (Prometheus, Node Exporter, cAdvisor, Uptime Kuma).</li>
-            <li>Dans <code className="font-mono text-[12px]">apps/command-center/.env.local</code> : <code className="font-mono text-[12px]">PROMETHEUS_URL</code>, <code className="font-mono text-[12px]">UPTIME_KUMA_URL</code> + <code className="font-mono text-[12px]">UPTIME_KUMA_STATUS_PAGE</code>, <code className="font-mono text-[12px]">BACKUP_STATUS_URL</code> (adresses VPN de la Pi).</li>
+            <li>Sur la Pi : Prometheus et Node Exporter (avec <code className="font-mono text-[12px]">--collector.systemd</code>) en paquets natifs, Uptime Kuma, liés à l’adresse Tailscale. Valheim n’est pas touché.</li>
+            <li>Dans <code className="font-mono text-[12px]">apps/command-center/.env.local</code> : <code className="font-mono text-[12px]">PROMETHEUS_URL</code>, <code className="font-mono text-[12px]">UPTIME_KUMA_URL</code> + <code className="font-mono text-[12px]">UPTIME_KUMA_STATUS_PAGE</code>, <code className="font-mono text-[12px]">BACKUP_STATUS_URL</code> (adresses VPN de la Pi). Option : <code className="font-mono text-[12px]">PI_SYSTEMD_UNITS</code> pour choisir les services suivis.</li>
             <li>Redémarrer le serveur du Command Center : ce panneau s’allume tout seul.</li>
           </ol>
           <span className="text-xs text-ink-3">Tant que rien n’est branché, aucune valeur n’est affichée : pas de chiffre inventé.</span>
@@ -118,10 +141,24 @@ export function PiPanel({ infra, refreshing }: { infra: InfraView; refreshing: b
         </dl>
       </Section>
 
-      <Section title={`Conteneurs${infra.containers.value ? ` · ${infra.containers.value.filter((c) => c.up).length}/${infra.containers.value.length}` : ""}`} icon={Box} source={infra.containers.source}>
-        {!infra.containers.value ? <p className="text-[12px] text-ink-3">Inconnu : cAdvisor non joignable.</p> : infra.containers.value.length === 0 ? <p className="text-[12px] text-ink-3">Aucun conteneur vu.</p> : (
+      <Section title={`Services${infra.services.value ? ` · ${infra.services.value.filter((u) => u.state === "active").length}/${infra.services.value.length}` : ""}`} icon={Settings2} source={infra.services.source}>
+        {!infra.services.value ? <p className="text-[12px] text-ink-3">Inconnu : collecteur systemd de Node Exporter non joignable.</p> : infra.services.value.length === 0 ? <p className="text-[12px] text-ink-3">Aucun service suivi trouvé (filtre PI_SYSTEMD_UNITS).</p> : (
+          <ul className="grid grid-cols-2 gap-1.5">
+            {infra.services.value.map((u) => (
+              <li key={u.name} className="flex items-center gap-2 rounded-[10px] bg-surface-2 px-2.5 py-1.5 text-[12px]" title={UNIT_LABEL[u.state]}>
+                <span className={cx("size-2 shrink-0 rounded-full", UNIT_DOT[u.state])} aria-label={UNIT_LABEL[u.state]} />
+                <span className="min-w-0 flex-1 truncate font-mono">{u.name}</span>
+                {u.state !== "active" && <span className="text-[11px] text-ink-3">{UNIT_LABEL[u.state]}</span>}
+              </li>
+            ))}
+          </ul>
+        )}
+      </Section>
+
+      {containers && containers.length > 0 && (
+        <Section title={`Conteneurs · ${containers.filter((c) => c.up).length}/${containers.length}`} icon={Box} source={infra.containers.source}>
           <ul className="flex flex-col divide-y divide-line-soft">
-            {infra.containers.value.map((c) => (
+            {containers.map((c) => (
               <li key={c.name} className="flex items-center gap-2 py-1.5 text-[12px]">
                 <span className={cx("size-2 rounded-full", c.up ? "bg-mint-dot" : "bg-coral-dot")} aria-label={c.up ? "actif" : "arrêté"} />
                 <span className="min-w-0 flex-1 truncate font-mono">{c.name}</span>
@@ -130,6 +167,26 @@ export function PiPanel({ infra, refreshing }: { infra: InfraView; refreshing: b
               </li>
             ))}
           </ul>
+        </Section>
+      )}
+
+      <Section title="Application" icon={AppWindow} source={infra.app.source}>
+        {!infra.app.value ? <p className="text-[12px] text-ink-3">Inconnu : backend non déployé ou /health/details injoignable.</p> : (
+          <div className="flex flex-col gap-1">
+            <div className="flex items-center gap-2 rounded-[10px] bg-surface-2 px-2.5 py-1.5 text-[12px]">
+              <span className={cx("size-2 rounded-full", APP_DOT[infra.app.value.status])} />
+              <span className="flex-1 font-mono">{infra.app.value.service}{infra.app.value.version ? ` · ${infra.app.value.version}` : ""}</span>
+              <span className="font-semibold">{APP_LABEL[infra.app.value.status]}</span>
+            </div>
+            {infra.app.value.dependencies.map((d) => (
+              <div key={d.name} className="flex items-center gap-2 px-2.5 py-1 text-[12px]">
+                <span className={cx("size-1.5 rounded-full", APP_DOT[d.status])} />
+                <span className="min-w-0 flex-1 truncate font-mono text-ink-2">{d.name}</span>
+                <span className="tabular-nums text-ink-3">{d.latencyMs === null ? "—" : `${Math.round(d.latencyMs)} ms`}</span>
+                <span className="w-16 text-right text-ink-3">{APP_LABEL[d.status]}</span>
+              </div>
+            ))}
+          </div>
         )}
       </Section>
 
@@ -153,7 +210,7 @@ export function PiPanel({ infra, refreshing }: { infra: InfraView; refreshing: b
           <div className="flex items-center gap-2 rounded-[12px] bg-surface-2 px-3 py-2 text-[12px]">
             <span className={cx("size-2 rounded-full", infra.backup.value.result === "succeeded" ? "bg-mint-dot" : infra.backup.value.result === "partial" ? "bg-amber-dot" : infra.backup.value.result === "failed" ? "bg-coral-dot" : "bg-sky-dot")} />
             <span className="flex-1">{infra.backup.value.kind === "restore_test" ? "Test de restauration" : "Sauvegarde"} {infra.backup.value.scope} · {infra.backup.value.result}</span>
-            <span className="text-ink-3">{ago(infra.backup.value.finished_at)}</span>
+            <span className="text-ink-3">{ago(infra.backup.value.finished_at, now)}</span>
           </div>
         )}
       </Section>

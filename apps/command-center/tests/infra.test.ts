@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { fmtBytes, fmtDuration, hostHealth, mergeContainers, parseKuma, parseMatrix, parseVector, type PiHost } from "@/lib/infra";
+import { appHealthState, fmtBytes, fmtDuration, hostHealth, mergeContainers, parseHealth, parseKuma, parseMatrix, parseUnits, parseVector, unitsQuery, type PiHost } from "@/lib/infra";
 
 const vec = (rows: [Record<string, string>, string][]) => ({ status: "success", data: { resultType: "vector", result: rows.map(([metric, v]) => ({ metric, value: [1, v] })) } });
 
@@ -40,6 +40,28 @@ describe("supervision de la Pi", () => {
     expect(hostHealth(base)).toBe("ok");
     expect(hostHealth({ ...base, temp: 72 })).toBe("warn");
     expect(hostHealth({ ...base, disk: 0.95 })).toBe("alert");
+  });
+  it("lit l'état des services systemd, inconnu sans état actif à 1", () => {
+    const rows = parseVector(vec([
+      [{ name: "valheim.service", state: "active" }, "1"], [{ name: "valheim.service", state: "failed" }, "0"],
+      [{ name: "ssh.service", state: "failed" }, "1"], [{ name: "odd.service", state: "active" }, "0"],
+    ]));
+    expect(parseUnits(rows)).toEqual([
+      { name: "odd", state: "unknown" }, { name: "ssh", state: "failed" }, { name: "valheim", state: "active" },
+    ]);
+  });
+  it("construit la requête systemd sans laisser passer de guillemet", () => {
+    expect(unitsQuery('valheim.*|ssh"}')).toBe('node_systemd_unit_state{type="service",name=~"(valheim.*|ssh})\\\\.service"}');
+  });
+  it("lit /health/details au schéma service-health, statut hors liste = inconnu", () => {
+    const h = parseHealth({ service: "backend", status: "degraded", checked_at: "2026-11-10T08:00:00Z", version: "0.1.0",
+      dependencies: [{ name: "database", status: "ok", checked_at: null, latency_ms: 12 }, { name: "ai-gateway", status: "maybe", checked_at: null }, { bad: 1 }] });
+    expect(h).toEqual({ service: "backend", status: "degraded", checkedAt: "2026-11-10T08:00:00Z", version: "0.1.0", dependencies: [
+      { name: "database", status: "ok", checkedAt: null, latencyMs: 12 }, { name: "ai-gateway", status: "unknown", checkedAt: null, latencyMs: null },
+    ] });
+    expect(parseHealth({ status: "ok" })).toBeNull();
+    expect(appHealthState(h)).toBe("warn");
+    expect(appHealthState(null)).toBe("unknown");
   });
   it("formate tailles et durées", () => {
     expect(fmtBytes(104857600)).toBe("100 Mo");

@@ -111,3 +111,65 @@ export function fmtDuration(s: number | null): string {
   const d = Math.floor(s / 86400), h = Math.floor((s % 86400) / 3600), m = Math.floor((s % 3600) / 60);
   return d ? `${d} j ${h} h` : h ? `${h} h ${m} min` : `${m} min`;
 }
+
+/**
+ * Services systemd de la Pi (Valheim y tourne sous systemd, pas en conteneur).
+ * Node Exporter avec --collector.systemd expose node_systemd_unit_state{name,state} à 1 pour l'état courant.
+ */
+export interface Unit { name: string; state: "active" | "activating" | "deactivating" | "inactive" | "failed" | "unknown" }
+const UNIT_STATES = ["active", "activating", "deactivating", "inactive", "failed"] as const;
+
+export function parseUnits(rows: { labels: Record<string, string>; value: number }[]): Unit[] {
+  const byName = new Map<string, Unit["state"]>();
+  for (const r of rows) {
+    const name = r.labels.name;
+    if (!name) continue;
+    if (!byName.has(name)) byName.set(name, "unknown");
+    const s = r.labels.state as Unit["state"];
+    if (r.value === 1 && (UNIT_STATES as readonly string[]).includes(s)) byName.set(name, s);
+  }
+  return [...byName].sort(([a], [b]) => a.localeCompare(b)).map(([name, state]) => ({ name: name.replace(/\.service$/, ""), state }));
+}
+
+/**
+ * Santé applicative (S7, OBSERVABILITY_CONTRACT §3) : réponse de /health/details au schéma service-health.
+ * Tout statut hors liste fermée devient « unknown ».
+ */
+export type AppStatus = "ok" | "degraded" | "down" | "unknown";
+export interface AppHealth {
+  service: string;
+  status: AppStatus;
+  checkedAt: string | null;
+  version: string | null;
+  dependencies: { name: string; status: AppStatus; checkedAt: string | null; latencyMs: number | null }[];
+}
+const APP_STATUSES: AppStatus[] = ["ok", "degraded", "down", "unknown"];
+const appStatus = (s: unknown): AppStatus => (APP_STATUSES.includes(s as AppStatus) ? (s as AppStatus) : "unknown");
+const str = (s: unknown) => (typeof s === "string" && s ? s : null);
+
+export function parseHealth(json: unknown): AppHealth | null {
+  const j = json as Record<string, unknown> | null;
+  if (!j || typeof j !== "object" || typeof j.service !== "string") return null;
+  const deps = Array.isArray(j.dependencies) ? j.dependencies : [];
+  return {
+    service: j.service,
+    status: appStatus(j.status),
+    checkedAt: str(j.checked_at),
+    version: str(j.version),
+    dependencies: deps.flatMap((d: Record<string, unknown>) => (d && typeof d.name === "string"
+      ? [{ name: d.name, status: appStatus(d.status), checkedAt: str(d.checked_at), latencyMs: typeof d.latency_ms === "number" ? d.latency_ms : null }]
+      : [])),
+  };
+}
+
+/** Lecture rapide pour l'agence et l'aperçu. */
+export function appHealthState(a: AppHealth | null): Health {
+  if (!a) return "unknown";
+  return a.status === "ok" ? "ok" : a.status === "degraded" ? "warn" : a.status === "down" ? "alert" : "unknown";
+}
+
+/** Requête des services suivis. Guillemets et barres obliques inverses retirés du filtre ; « . » littéral avant « service ». */
+export function unitsQuery(filter: string): string {
+  const safe = filter.replace(/["\\]/g, "");
+  return `node_systemd_unit_state{type="service",name=~"(${safe})\\\\.service"}`;
+}

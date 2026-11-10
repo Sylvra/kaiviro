@@ -2,8 +2,9 @@ import "server-only";
 import { ADRS, DECISIONS, DELIVERABLES, PLAN_DAY, PLAN_SOURCE, type Adr, type AdrStatus, type Decision, type Deliverable, type Owner, type Status } from "./data/plan";
 import { EVENT_LABEL, type Partner } from "./partners";
 import { mapRepoEvent, mergeLog, type LogEntry } from "./activity";
+import { latestByWorkflow, mapRuns, type CiRun } from "./ci";
 import { readPartners } from "./sources/partners-store";
-import { compareBranch, getBranchHead, getRepo, listRepoEvents, listAdrFiles, listBranches, listIssues, listOpenPulls, readRaw, type GhComment, type GhIssue } from "./sources/github";
+import { compareBranch, getBranchHead, getRepo, listRepoEvents, listAdrFiles, listBranches, listIssues, listOpenPulls, listWorkflowRuns, readRaw, type GhComment, type GhIssue } from "./sources/github";
 import { fromStatic, type Sourced } from "./sources/types";
 import { planDayAt, todayInParis, type PlanDay } from "./plan-day";
 
@@ -229,6 +230,13 @@ export async function getActivityLog(): Promise<Sourced<LogEntry[]>> {
     source: events ? "S1 · GitHub events + fichier local" : "Fichier local (GitHub injoignable)",
     fetchedAt: events?.fetchedAt ?? new Date().toISOString(), freshness: events ? "live" : "stale", demo: false,
   };
+}
+
+/** Dernière exécution CI par workflow et branche (S1 · GitHub Actions). */
+export async function getCiRuns(): Promise<Sourced<CiRun[]>> {
+  const r = await listWorkflowRuns();
+  if (r) return { value: latestByWorkflow(mapRuns(r.data)), source: "S1 · GitHub Actions", fetchedAt: r.fetchedAt, freshness: "live", demo: false };
+  return { value: null, source: "S1 · GitHub Actions (jeton sans « Actions : read » ou non configuré)", fetchedAt: null, freshness: "unknown", demo: false };
 }
 
 export async function getOpenPullCount(): Promise<Sourced<number>> {

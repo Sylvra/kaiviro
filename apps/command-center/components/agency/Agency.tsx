@@ -221,7 +221,7 @@ export function Agency({ model, log, logSource, infra: initialInfra }: { model: 
   const [full, setFull] = useState(false);
   const [pseudo, setPseudo] = useState(false);
   const isFull = full || pseudo;
-  const anyInfra = infra.configured.prometheus || infra.configured.kuma || infra.configured.backup;
+  const anyInfra = infra.configured.prometheus || infra.configured.kuma || infra.configured.backup || infra.configured.app;
   const zone = useMemo(() => model.zones.find((z) => z.id === selected) ?? null, [model.zones, selected]);
   const counts = useMemo(() => {
     const c: Record<ZoneState, number> = { ok: 0, warn: 0, alert: 0, unknown: 0 };

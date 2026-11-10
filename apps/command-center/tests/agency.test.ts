@@ -18,6 +18,19 @@ const input: AgencyInput = {
 };
 
 describe("agence 3D", () => {
+  it("détaille la Pi, la CI et l'audit ; sécurité reste inconnue sans registre d'incidents", () => {
+    const z = Object.fromEntries(buildAgency({
+      ...input,
+      pi: { units: [{ name: "valheim", state: "active" }, { name: "ssh", state: "failed" }], monitors: null, backup: null },
+      ci: { failures: 1, total: 3 },
+      audit: { total: 4, denied: 1 },
+    }).zones.map((x) => [x.id, x]));
+    expect(z.infra?.details[0]).toBe("Services : valheim ✓, ssh (failed)");
+    expect(z.infra?.details[1]).toBe("Uptime Kuma (S4) : non connecté");
+    expect(z.infra?.kpis.find((k) => k.label === "Services actifs")?.value).toBe("1/2");
+    expect(z.dev?.kpis.find((k) => k.label === "CI en échec")?.value).toBe("1/3");
+    expect(z.security).toMatchObject({ state: "unknown", summary: "4 action(s) journalisée(s) · 1 refus" });
+  });
   it("dérive l'état des zones des données réelles", () => {
     const z = Object.fromEntries(buildAgency(input).zones.map((x) => [x.id, x]));
     expect(z.livrables).toMatchObject({ state: "warn", summary: "1/3 terminés · 1 en retard" }); // « b » en revue, fenêtre J1–J2 passée
