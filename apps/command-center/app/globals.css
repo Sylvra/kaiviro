@@ -1,0 +1,246 @@
+@import "tailwindcss";
+
+/* Design system NEXUS V2, validé le 2026-11-10 (canvas NX-0, planche Système).
+   Clair par défaut, sombre « salle de contrôle ». Les composants n'utilisent que ces jetons. */
+
+:root {
+  --canvas: #f5f5f3;
+  --rail: #efefec;
+  --main: #fafaf9;
+  --surface: #ffffff;
+  --line: #ecebe7;
+  --line-strong: #e2e1dc;
+  --grid: #f0efeb;
+  --axis: #d9d8d3;
+  --ink: #141416;
+  --ink-2: #3f3f46;
+  --muted: #63636b;
+  --faint: #a1a1aa;
+  --accent: #0f766e;
+  --accent-2: #3fa898;
+  --accent-3: #9ed6cc;
+  --accent-soft: #e6f4f1;
+  --accent-ink: #0f5f57;
+  --primary: #141416;
+  --on-primary: #ffffff;
+  --tip: #141416;
+  --on-tip: #ffffff;
+  --hatch-a: #e4e3df;
+  --hatch-b: #f2f1ee;
+  --ok: #14b8a6;
+  --ok-bg: #e6f4f1;
+  --ok-ink: #0f5f57;
+  --warn: #d97706;
+  --warn-bg: #fef3c7;
+  --warn-ink: #7a4b00;
+  --crit: #dc2626;
+  --crit-bg: #fdecea;
+  --crit-ink: #a3271b;
+  --unk: #a1a1aa;
+  --unk-bg: #f1f1ef;
+  --unk-ink: #57575e;
+  --doing: #3b8ed0;
+  --doing-bg: #e0f0fb;
+  --doing-ink: #1e5a85;
+  --review: #8b7cf0;
+  --review-bg: #eeebfb;
+  --review-ink: #4b3bb0;
+  --common-bg: #fdede4;
+  --common-ink: #9a3f22;
+  --todo-fill: #efeeea;
+  --elev: 0 1px 2px rgb(20 20 22 / 0.04), 0 12px 24px -20px rgb(20 20 22 / 0.25);
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+  --canvas: #0b1015;
+  --rail: #0f151c;
+  --main: #0b1015;
+  --surface: #121a22;
+  --line: #1f2a35;
+  --line-strong: #2a3644;
+  --grid: #1a2430;
+  --axis: #2a3644;
+  --ink: #e6edf3;
+  --ink-2: #c3ceda;
+  --muted: #8b9bad;
+  --faint: #6b7785;
+  --accent: #2dd4bf;
+  --accent-2: #1fa394;
+  --accent-3: #1d7f75;
+  --accent-soft: rgb(45 212 191 / 0.12);
+  --accent-ink: #5eead4;
+  --primary: #e6edf3;
+  --on-primary: #0b1015;
+  --tip: #e6edf3;
+  --on-tip: #0b1015;
+  --hatch-a: #1f2a35;
+  --hatch-b: #121a22;
+  --ok: #2dd4bf;
+  --ok-bg: rgb(45 212 191 / 0.12);
+  --ok-ink: #5eead4;
+  --warn: #f59e0b;
+  --warn-bg: rgb(245 158 11 / 0.14);
+  --warn-ink: #fcd34d;
+  --crit: #f87171;
+  --crit-bg: rgb(248 113 113 / 0.14);
+  --crit-ink: #fca5a5;
+  --unk: #6b7785;
+  --unk-bg: #1a2430;
+  --unk-ink: #a9b6c6;
+  --doing: #60a5fa;
+  --doing-bg: rgb(96 165 250 / 0.14);
+  --doing-ink: #93c5fd;
+  --review: #a78bfa;
+  --review-bg: rgb(167 139 250 / 0.14);
+  --review-ink: #c4b5fd;
+  --common-bg: rgb(251 146 60 / 0.14);
+  --common-ink: #fdba74;
+  --todo-fill: #1a2430;
+  --elev: 0 12px 24px -16px rgb(0 0 0 / 0.8);
+  color-scheme: dark;
+}
+
+@theme inline {
+  --font-sans: var(--font-hanken), system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains), ui-monospace, monospace;
+  --color-canvas: var(--canvas);
+  --color-rail: var(--rail);
+  --color-main: var(--main);
+  --color-surface: var(--surface);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-grid: var(--grid);
+  --color-axis: var(--axis);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-muted: var(--muted);
+  --color-faint: var(--faint);
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-ink: var(--accent-ink);
+  --color-primary: var(--primary);
+  --color-on-primary: var(--on-primary);
+  --color-tip: var(--tip);
+  --color-on-tip: var(--on-tip);
+  --color-warn-bg: var(--warn-bg);
+  --color-warn-ink: var(--warn-ink);
+  --color-crit-ink: var(--crit-ink);
+}
+
+@layer base {
+  html {
+    background: var(--canvas);
+    color: var(--ink);
+  }
+  body {
+    font-family: var(--font-sans);
+    font-variant-numeric: tabular-nums;
+    font-size: 14px;
+    line-height: 1.45;
+    -webkit-font-smoothing: antialiased;
+  }
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+    border-radius: 6px;
+  }
+  a {
+    color: inherit;
+    text-decoration: none;
+  }
+}
+
+@layer components {
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    box-shadow: var(--elev);
+  }
+  /* Source sans mesure : hachure, jamais une couleur d'état. */
+  .hatch {
+    background: repeating-linear-gradient(135deg, var(--hatch-a) 0 3px, var(--hatch-b) 3px 6px);
+  }
+  .link {
+    color: var(--accent);
+    font-weight: 600;
+  }
+  .link:hover {
+    text-decoration: underline;
+  }
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 32px;
+    padding: 0 12px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 500;
+    border: 1px solid var(--line-strong);
+    background: var(--surface);
+    color: var(--ink);
+    transition: border-color 150ms ease;
+  }
+  .btn:hover:not([aria-disabled="true"]) {
+    border-color: var(--faint);
+  }
+  .btn-primary {
+    border: 0;
+    background: var(--primary);
+    color: var(--on-primary);
+    font-weight: 600;
+  }
+  .btn[aria-disabled="true"] {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+  .row-link {
+    transition: background-color 150ms ease;
+  }
+  .row-link:hover {
+    background: var(--grid);
+  }
+  .draw {
+    stroke-dasharray: 1;
+    stroke-dashoffset: 1;
+    animation: draw 900ms cubic-bezier(0.2, 0.7, 0.2, 1) 120ms forwards;
+  }
+  .rise {
+    transform-origin: bottom;
+    animation: rise 500ms cubic-bezier(0.2, 0.7, 0.2, 1) backwards;
+  }
+  .fade-up {
+    animation: fade-up 400ms cubic-bezier(0.2, 0.7, 0.2, 1) backwards;
+  }
+}
+
+@keyframes draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+@keyframes rise {
+  from {
+    transform: scaleY(0);
+  }
+}
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+  .draw {
+    stroke-dashoffset: 0;
+  }
+}
