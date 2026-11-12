@@ -19,5 +19,6 @@ Procédure complète : [RASPBERRY_PI_ADMIN_CENTER](../../docs/operations/RASPBER
 | [`scripts/install-supervision.sh`](scripts/install-supervision.sh) | Lancé une fois avec `sudo` | Étape 2 sans Docker : Node Exporter et Prometheus (paquets Debian), publiés sur le tailnet seulement. Appliqué le 2026-11-12. |
 | [`scripts/install-sauvegardes.sh`](scripts/install-sauvegardes.sh) | Lancé une fois avec `sudo`, à côté des scripts de [`../backups/`](../backups/README.md) | restic, dépôt chiffré sur le SSD, sauvegarde quotidienne de `pi-config`, test de restauration mensuel. Appliqué le 2026-11-12. |
 | [`scripts/install-copie-drive.sh`](scripts/install-copie-drive.sh) | Lancé une fois avec `sudo`, après le précédent | Copie hors site chiffrée sur Google Drive (rclone), sauvegarde quotidienne à 04:15, test mensuel depuis Drive |
+| [`scripts/rotation-mot-de-passe.sh`](scripts/rotation-mot-de-passe.sh) | Lancé avec `sudo` en cas d’exposition du mot de passe | Nouvelle clé restic sur les deux dépôts, vérification, retrait de l’ancienne, contrôle par sauvegarde et test |
 
 Autres dossiers : [`../monitoring/`](../monitoring/README.md), [`../network/`](../network/README.md), [`../backups/`](../backups/README.md).
