@@ -12,6 +12,7 @@ import { lirePullsOuvertes } from "./s1/github";
 import { lireCibles, lireRegles, lireRuntime, lireTsdb, lireVersion, prometheusConfigure, plage, requete } from "./s5/prometheus";
 import { REQUETES, SERIES, duree, etatNoeud, valeur, versCibles, versSerie, versServices, type Cible, type Echantillon } from "./s5/mapping";
 import { REQUETES_STOCKAGE, versDisques, type Disque } from "./s5/stockage";
+import { REQUETES_S6, versEtats, type EtatSauvegarde } from "./s6/sauvegardes";
 import type { Etat, Noeud, Provenance, Tache } from "./types";
 
 /** Jalons du plan M0 (docs/roadmap/M0_PLAN.md §4), saisis dans NEXUS. */
@@ -321,17 +322,21 @@ export interface Stockage {
   joignable: boolean;
   disques: Disque[];
   majEnAttente: number | null;
+  /** S6 : dernières sauvegardes et tests de restauration publiés sur la Pi. */
+  sauvegardes: EtatSauvegarde[];
   redemarrageRequis: boolean | null;
 }
 
 async function chargerStockageBrut(): Promise<Stockage> {
-  if (!prometheusConfigure()) return { joignable: false, disques: [], majEnAttente: null, redemarrageRequis: null };
+  if (!prometheusConfigure()) return { joignable: false, disques: [], majEnAttente: null, redemarrageRequis: null, sauvegardes: [] };
   const cles = Object.keys(REQUETES_STOCKAGE) as (keyof typeof REQUETES_STOCKAGE)[];
   const reponses = await Promise.all(cles.map((k) => requete(REQUETES_STOCKAGE[k])));
   const r = Object.fromEntries(cles.map((k, i) => [k, reponses[i] ?? null])) as Record<keyof typeof REQUETES_STOCKAGE, Echantillon[] | null>;
   const reboot = valeur(r.redemarrage);
+  const [passage, succes, resultat] = await Promise.all([requete(REQUETES_S6.passage), requete(REQUETES_S6.succes), requete(REQUETES_S6.resultat)]);
   return {
     joignable: r.taille !== null,
+    sauvegardes: versEtats({ passage, succes, resultat }, Math.floor(Date.now() / 1000)),
     disques: versDisques(r),
     majEnAttente: valeur(r.majEnAttente),
     redemarrageRequis: reboot === null ? null : reboot > 0,
@@ -351,7 +356,8 @@ export interface EtatSource {
 }
 
 async function chargerSourcesBrut(): Promise<EtatSource[]> {
-  const [t, adr, sup] = await Promise.all([chargerTableau(), chargerAdr(), chargerSupervision()]);
+  const [t, adr, sup, sto] = await Promise.all([chargerTableau(), chargerAdr(), chargerSupervision(), chargerStockage()]);
+  const s6 = sto.sauvegardes.length > 0;
   const branche = (ok: boolean, motif: string) => (ok ? { etat: "ok" as Etat, libelle: "Branchée · lecture seule" } : { etat: "inconnu" as Etat, libelle: motif });
   return [
     { id: "S1", nom: "GitHub API", contenu: "Issues, décisions, activité, CI, dépôt", ...branche(t.connecte, githubConfigure() ? "Injoignable" : "Non configurée"), pages: "Overview, Tâches, Projet, Cloud" },
@@ -359,7 +365,7 @@ async function chargerSourcesBrut(): Promise<EtatSource[]> {
     { id: "S3", nom: "Vault Drive", contenu: "Notes et comptes rendus", etat: "inconnu", libelle: "Non branchée dans NEXUS" },
     { id: "S4", nom: "Uptime Kuma", contenu: "Sondes de disponibilité", etat: "inconnu", libelle: "Non installé sur la Pi" },
     { id: "S5", nom: "Prometheus + Node Exporter", contenu: "Métriques, services systemd, disques, SMART", ...branche(sup.joignable, sup.configure ? "Injoignable" : "Non configurée"), pages: "Pi, Carte, Services, Supervision, Stockage" },
-    { id: "S6", nom: "Journal de sauvegarde", contenu: "Dernière sauvegarde, test de restauration", etat: "inconnu", libelle: "Aucune sauvegarde KAIVIRO" },
+    { id: "S6", nom: "Journal de sauvegarde", contenu: "Dernière sauvegarde, test de restauration", ...branche(s6, "Aucune sauvegarde KAIVIRO"), pages: s6 ? "Stockage, Overview" : undefined },
     { id: "S7", nom: "Contrat de supervision du backend", contenu: "/health, /metrics", etat: "inconnu", libelle: "API non déployée (mission B)" },
     { id: "S8", nom: "Supabase · schéma admin", contenu: "Comptes, rôles, audit, CRM", etat: "inconnu", libelle: "Candidat · ADR-0004" },
     { id: "S9", nom: "Passerelle IA", contenu: "Modèles, latence, coût", etat: "inconnu", libelle: "Prévue en M5" },
@@ -390,4 +396,22 @@ async function avecPi(t: Tableau): Promise<Tableau> {
 }
 
 /** Une seule lecture par requête, partagée par la barre, la palette et la page. */
-export const chargerTableau = cache(async () => avecPi(await charger()));
+/** Intègre l'état S6 des sauvegardes à l'Overview. Sans métrique, le constat « jamais mesurées » reste. */
+async function avecSauvegardes(t: Tableau): Promise<Tableau> {
+  const { sauvegardes } = await chargerStockage();
+  if (sauvegardes.length === 0) return t;
+  const pire = sauvegardes.find((x) => x.etat === "alerte") ?? sauvegardes.find((x) => x.etat === "attention");
+  const etat: Etat = pire?.etat ?? "ok";
+  const libelle = pire ? pire.libelle : "OK · sauvegarde et test récents";
+  const aTraiter = t.aTraiter.filter((a) => a.titre !== "Sauvegardes jamais mesurées");
+  if (pire)
+    aTraiter.unshift({
+      etat: pire.etat === "alerte" ? "alerte" : "attention",
+      titre: `Sauvegarde : ${pire.libelle.toLowerCase()}`,
+      detail: `S6 · ${pire.perimetre}`,
+      href: "/infrastructure/stockage",
+    });
+  return { ...t, aTraiter, sante: t.sante.map((x) => (x.nom === "Sauvegardes" ? { ...x, etat, libelle } : x)) };
+}
+
+export const chargerTableau = cache(async () => avecSauvegardes(await avecPi(await charger())));

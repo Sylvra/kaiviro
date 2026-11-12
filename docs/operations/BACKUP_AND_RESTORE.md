@@ -32,6 +32,12 @@ Version relevée : restic `0.19.1` (release GitHub du 05/07/2026). Installer dep
 
 Hors périmètre : séries Prometheus et journaux Loki (reconstructibles, rétention courte), données de l'app (mission B).
 
+Mise à jour du 2026-11-12, selon la Pi réelle (sans WireGuard, nftables ni Docker) :
+
+- `pi-config` couvre `/etc/ssh/sshd_config.d`, `/etc/prometheus`, `/etc/default/prometheus*`, `/etc/systemd/system` et `/opt/kaiviro`, s'ils existent.
+- Les clés Tailscale ne sont pas sauvegardées : une nouvelle connexion au tailnet suffit.
+- `pi-monitoring-data` attend Uptime Kuma et Grafana, qui ne sont pas installés.
+
 ## 3. Chiffrement et secrets
 
 - Dépôts restic chiffrés (AES-256 côté restic).

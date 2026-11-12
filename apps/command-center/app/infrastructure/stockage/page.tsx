@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Topbar } from "@/components/Topbar";
 import { Pastille, Point, Source } from "@/components/ui";
 import { chargerStockage } from "@/lib/donnees";
+import { age } from "@/lib/s6/sauvegardes";
 
 export const metadata: Metadata = { title: "Backups & Storage" };
 
@@ -9,13 +10,16 @@ const S5 = { source: "S5", libelle: "Node Exporter · smartmon", exemple: false 
 
 /** Périmètres de sauvegarde prévus (BACKUP_AND_RESTORE §2). Aucun n'existe encore. */
 const PERIMETRES = [
-  { id: "pi-config", contenu: "Configuration SSH, pare-feu, VPN, /opt/kaiviro", frequence: "quotidienne" },
+  { id: "pi-config", contenu: "SSH, supervision, unités systemd, /opt/kaiviro", frequence: "quotidienne" },
   { id: "pi-monitoring-data", contenu: "Données d’Uptime Kuma et de Grafana", frequence: "quotidienne" },
   { id: "admin-db", contenu: "Schéma admin (CRM, incidents, audit)", frequence: "selon l’hébergeur (ADR-0004)" },
 ];
 
 export default async function Stockage() {
   const s = await chargerStockage();
+  const maintenant = Math.floor(Date.now() / 1000);
+  const etats = (id: string) => s.sauvegardes.filter((x) => x.perimetre === id);
+  const configOk = etats("pi-config").length === 2 && etats("pi-config").every((x) => x.etat === "ok");
 
   return (
     <>
@@ -29,10 +33,17 @@ export default async function Stockage() {
       </div>
 
       <div className="flex flex-col gap-4 px-5 pb-8 sm:px-9">
-        <p role="note" className="m-0 rounded-xl px-3.5 py-3 text-[13px] text-crit-ink" style={{ background: "var(--crit-bg)" }}>
-          <b className="font-semibold">Aucune sauvegarde KAIVIRO.</b> Ni restic ni test de restauration ne sont en place. La recette M0 exige une
-          sauvegarde et une restauration de test réussie (BACKUP_AND_RESTORE).
-        </p>
+        {s.sauvegardes.length === 0 ? (
+          <p role="note" className="m-0 rounded-xl px-3.5 py-3 text-[13px] text-crit-ink" style={{ background: "var(--crit-bg)" }}>
+            <b className="font-semibold">Aucune sauvegarde KAIVIRO mesurée.</b> La recette M0 exige une sauvegarde et une restauration de test
+            réussie (BACKUP_AND_RESTORE).
+          </p>
+        ) : configOk ? (
+          <p role="note" className="m-0 rounded-xl bg-warn-bg px-3.5 py-3 text-[13px] text-warn-ink">
+            <b className="font-semibold">Configuration de la Pi sauvegardée et restauration vérifiée.</b> Copie sur le SSD seulement : la copie hors
+            site (règle 3-2-1) reste à décider.
+          </p>
+        ) : null}
 
         <section aria-labelledby="disques" className="card min-w-0 overflow-x-auto rounded-[14px]">
           <div className="flex items-baseline justify-between px-3.5 pb-1 pt-4">
@@ -93,18 +104,32 @@ export default async function Stockage() {
               Sauvegardes prévues
             </h2>
             <ul className="m-0 flex list-none flex-col gap-2 p-0">
-              {PERIMETRES.map((p) => (
-                <li key={p.id} className="flex items-start gap-2.5 rounded-[10px] border border-line px-3 py-2.5 text-[13px]">
-                  <span className="mt-1.5">
-                    <Point etat="inconnu" />
-                  </span>
-                  <span className="flex flex-1 flex-col gap-0.5">
-                    <span className="font-mono text-xs font-semibold">{p.id}</span>
-                    <span className="text-ink-2">{p.contenu}</span>
-                  </span>
-                  <span className="text-xs text-muted">jamais exécutée · {p.frequence}</span>
-                </li>
-              ))}
+              {PERIMETRES.map((p) => {
+                const e = etats(p.id);
+                return (
+                  <li key={p.id} className="flex flex-col gap-2 rounded-[10px] border border-line px-3 py-2.5 text-[13px]">
+                    <span className="flex items-start gap-2.5">
+                      <span className="mt-1.5">
+                        <Point etat={e.length ? (e.some((x) => x.etat === "alerte") ? "alerte" : e.some((x) => x.etat === "attention") ? "attention" : "ok") : "inconnu"} />
+                      </span>
+                      <span className="flex flex-1 flex-col gap-0.5">
+                        <span className="font-mono text-xs font-semibold">{p.id}</span>
+                        <span className="text-ink-2">{p.contenu}</span>
+                      </span>
+                      {e.length === 0 && <span className="text-xs text-muted">jamais exécutée · {p.frequence}</span>}
+                    </span>
+                    {e.map((x) => (
+                      <span key={x.genre + x.depot} className="flex flex-wrap items-center gap-2 pl-[18px] text-xs">
+                        <Pastille etat={x.etat}>{x.libelle}</Pastille>
+                        <span className="text-ink-2">{x.genre === "backup" ? "Sauvegarde" : "Test de restauration"}</span>
+                        <span className="text-muted">
+                          {x.dernierSucces ? `succès ${age(x.dernierSucces, maintenant)}` : "aucun succès"} · dépôt {x.depot === "local" ? "SSD" : x.depot}
+                        </span>
+                      </span>
+                    ))}
+                  </li>
+                );
+              })}
             </ul>
             <span className="text-xs text-muted">
               Hors KAIVIRO : la Pi sauvegarde déjà le serveur Valheim personnel (timer valheim-backup). NEXUS ne le suit pas.
