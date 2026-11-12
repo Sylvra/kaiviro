@@ -21,7 +21,7 @@ export const NAV: GroupeNav[] = [
       { label: "Project Management", icone: "folder", href: "/projet" },
       { label: "Tasks & Roadmap", icone: "tasks", href: "/taches" },
       { label: "Finance & Budget", icone: "wallet", phase: "NX-2" },
-      { label: "Team & Members", icone: "users", phase: "NX-1" },
+      { label: "Team & Members", icone: "users", href: "/equipe" },
     ],
   },
   {
@@ -33,7 +33,7 @@ export const NAV: GroupeNav[] = [
       { label: "Containers & Services", icone: "box", href: "/infrastructure/services" },
       { label: "Monitoring & Metrics", icone: "activity", href: "/infrastructure/supervision" },
       { label: "Logs & Incidents", icone: "logs", phase: "NX-3" },
-      { label: "Backups & Storage", icone: "db", phase: "NX-2" },
+      { label: "Backups & Storage", icone: "db", href: "/infrastructure/stockage" },
     ],
   },
   {
@@ -43,7 +43,7 @@ export const NAV: GroupeNav[] = [
       { label: "Knowledge Center", icone: "book", href: "/connaissances" },
       { label: "Security & Audit", icone: "shield", phase: "NX-1" },
       { label: "Virtual Agency 3D", icone: "cube", phase: "NX-3" },
-      { label: "Settings", icone: "gear", phase: "NX-2" },
+      { label: "Settings", icone: "gear", href: "/reglages" },
     ],
   },
 ];

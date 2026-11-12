@@ -24,6 +24,9 @@ Spécification : [`docs/command-center/NEXUS_SPEC_V2.md`](../../docs/command-cen
 | `/infrastructure/services` | Containers & Services : services systemd suivis, conteneurs, API du backend |
 | `/infrastructure/supervision` | Monitoring & Metrics : cibles Prometheus, séries, règles d’alerte, moniteurs |
 | `/infrastructure/cloud` | Cloud Services : GitHub et Tailscale mesurés, Supabase et Vercel candidats |
+| `/infrastructure/stockage` | Backups & Storage : disques, santé SMART, sauvegardes prévues, mises à jour en attente |
+| `/equipe` | Team & Members : membres saisis dans NEXUS, charge par mission (S1) |
+| `/reglages` | Settings : état des sources S1 à S9 |
 | `/infrastructure/noeuds/raspberry-pi-5` | Fiche de nœud : métriques, services, relations, chronologie |
 
 Recherche rapide : `Ctrl K`. Thème clair ou sombre : bouton de la barre, choix mémorisé dans le navigateur.
@@ -51,6 +54,7 @@ npm run build
 - `lib/s1/decisions.ts` : issues `decision` vers objets Décision, testé.
 - `lib/s2/adr.ts` : en-têtes des ADR vers registre, testé.
 - `lib/s5/prometheus.ts` : lecture de Prometheus, GET uniquement.
+- `lib/s5/stockage.ts` : disques et SMART vers objets NEXUS, testé.
 - `lib/s5/mapping.ts` : requêtes PromQL et conversion en fiche de nœud, testée.
 - `lib/data/exemple.ts` : données d'exemple, utilisées sans connecteur.
 - `.env.example` : variables attendues, sans valeur réelle.
