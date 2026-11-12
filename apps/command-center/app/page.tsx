@@ -221,7 +221,7 @@ export default async function Overview() {
               </Link>
             }
           >
-            <div role="img" aria-label={`${mesures} source mesurée, ${sante.length - mesures} sans mesure`} className="flex h-2.5 gap-0.5">
+            <div role="img" aria-label={`${mesures} source${mesures > 1 ? "s mesurées" : " mesurée"}, ${sante.length - mesures} sans mesure`} className="flex h-2.5 gap-0.5">
               <span className="rounded-[3px]" style={{ flex: mesures, background: "var(--ok)" }} />
               <span className="hatch rounded-[3px]" style={{ flex: sante.length - mesures }} />
             </div>
@@ -237,7 +237,7 @@ export default async function Overview() {
               ))}
             </ul>
             <span className="text-xs text-muted">
-              {mesures} source mesurée sur {sante.length}{connecte ? "" : " · exemple"} · rien n’est supposé sain
+              {mesures} source{mesures > 1 ? "s mesurées" : " mesurée"} sur {sante.length}{connecte ? "" : " · exemple"} · rien n’est supposé sain
             </span>
           </Bloc>
         </div>

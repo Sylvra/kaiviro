@@ -9,6 +9,8 @@ updated: 2026-11-05
 # Raspberry Pi 5 — centre d'administration
 
 > Les instances Claude **ne se connectent jamais** à la Pi. Ce document et les fichiers de [`infrastructure/`](../../infrastructure/raspberry-pi/README.md) sont des propositions. **Johan seul** les relit et les applique.
+>
+> **Exception du 2026-11-12, accordée par Johan dans la session.** Accès SSH par une clé dédiée, sans `sudo`, pour inventorier la Pi et vérifier la supervision. Johan a lancé lui-même l'installation avec `sudo` ([`install-supervision.sh`](../../infrastructure/raspberry-pi/scripts/install-supervision.sh)). Toute nouvelle intervention demande un nouvel accord.
 
 Documents liés : [ADR-0010](../adr/ADR-0010-observabilite-et-pi.md) · [CONTAINERS](CONTAINERS.md) · [NETWORK_AND_VPN](NETWORK_AND_VPN.md) · [BACKUP_AND_RESTORE](BACKUP_AND_RESTORE.md) · [SECURITY_BASELINE](../security/SECURITY_BASELINE.md).
 

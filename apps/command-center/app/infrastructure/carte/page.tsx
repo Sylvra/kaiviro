@@ -3,8 +3,8 @@ import Link from "next/link";
 import { Topbar } from "@/components/Topbar";
 import { Pastille, Point } from "@/components/ui";
 import { ETAT } from "@/lib/etats";
-import { carte, raspberryPi } from "@/lib/data/exemple";
-import { chargerTableau } from "@/lib/donnees";
+import { carte } from "@/lib/data/exemple";
+import { chargerPi, chargerTableau } from "@/lib/donnees";
 import type { Etat } from "@/lib/types";
 
 export const metadata: Metadata = { title: "Infrastructure Map" };
@@ -18,7 +18,8 @@ const LEGENDE: { etat: Etat; texte: string }[] = [
 
 export default async function Carte({ searchParams }: { searchParams: Promise<{ vue?: string }> }) {
   const vue = (await searchParams).vue === "table" ? "table" : "carte";
-  const pi = raspberryPi;
+  const { noeud: pi, mesure, cpu, temperature } = await chargerPi();
+  const actifs = pi.services.filter((s) => s.etat === "ok").length;
   const { connecte, sante } = await chargerTableau();
   const gh = sante.find((x) => x.nom === "GitHub")!;
   // Seul GitHub est mesuré (S1) ; les autres nœuds gardent leur état saisi, jamais supposé sain.
@@ -49,7 +50,7 @@ export default async function Carte({ searchParams }: { searchParams: Promise<{ 
           ))}
         </div>
         <span className="flex-1" />
-        <span className="text-xs text-muted">Topologie saisie dans NEXUS · {connecte ? "GitHub mesuré (S1), le reste non branché" : "états d’exemple"}</span>
+        <span className="text-xs text-muted">Topologie saisie dans NEXUS · {mesure && connecte ? "GitHub (S1) et Pi (S5) mesurés, le reste non branché" : mesure ? "Pi mesurée (S5), le reste d’exemple" : connecte ? "GitHub mesuré (S1), le reste non branché" : "états d’exemple"}</span>
       </div>
 
       <div className="grid grid-cols-1 items-start gap-4 px-5 pb-8 sm:px-9 2xl:grid-cols-[minmax(0,1fr)_340px]">
@@ -107,12 +108,12 @@ export default async function Carte({ searchParams }: { searchParams: Promise<{ 
                   <Point etat={pi.etat} taille={8} />
                   {pi.nom}
                 </span>
-                <span className="text-xs text-muted">Nœud · non supervisé</span>
+                <span className="text-xs text-muted">{mesure ? "Nœud · supervisé (S5)" : "Nœud · non supervisé"}</span>
                 <span className="flex flex-col gap-1 font-mono text-[11px] text-ink-2">
-                  {carte.servicesPi.map((s) => (
-                    <span key={s} className="flex items-center gap-1.5">
-                      <Point etat="inconnu" taille={6} />
-                      {s}
+                  {(mesure ? pi.services.map((s) => ({ nom: s.nom, etat: s.etat })) : carte.servicesPi.map((nom) => ({ nom, etat: "inconnu" as const }))).map((s) => (
+                    <span key={s.nom} className="flex items-center gap-1.5">
+                      <Point etat={s.etat} taille={6} />
+                      {s.nom}
                     </span>
                   ))}
                 </span>
@@ -171,15 +172,15 @@ export default async function Carte({ searchParams }: { searchParams: Promise<{ 
             <span className="text-xs text-muted">Sélection</span>
             <h2 className="m-0 text-[17px] font-bold">{pi.nom}</h2>
             <span className="self-start">
-              <Pastille etat={pi.etat}>Inconnu · aucune métrique</Pastille>
+              <Pastille etat={pi.etat}>{mesure ? pi.libelleEtat : "Inconnu · aucune métrique"}</Pastille>
             </span>
             <dl className="m-0 grid grid-cols-2 gap-x-2.5 gap-y-2 text-[13px]">
               <dt className="text-muted">CPU</dt>
-              <dd className="m-0 text-faint">—</dd>
+              <dd className={`m-0 ${cpu === null ? "text-faint" : ""}`}>{cpu === null ? "—" : `${cpu} %`}</dd>
               <dt className="text-muted">Température</dt>
-              <dd className="m-0 text-faint">—</dd>
-              <dt className="text-muted">Services suivis</dt>
-              <dd className="m-0 text-faint">—</dd>
+              <dd className={`m-0 ${temperature === null ? "text-faint" : ""}`}>{temperature === null ? "—" : `${temperature} °C`}</dd>
+              <dt className="text-muted">Services actifs</dt>
+              <dd className={`m-0 ${mesure ? "" : "text-faint"}`}>{mesure ? `${actifs} sur ${pi.services.length}` : "—"}</dd>
               <dt className="text-muted">Accès</dt>
               <dd className="m-0">Tailscale</dd>
             </dl>

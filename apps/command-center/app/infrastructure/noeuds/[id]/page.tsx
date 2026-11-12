@@ -6,6 +6,7 @@ import { Topbar } from "@/components/Topbar";
 import { BoutonInactif, Chronologie, Exemple, ListeRelations, NoteExemple, Pastille, Point, Source } from "@/components/ui";
 import { ETAT } from "@/lib/etats";
 import { noeuds } from "@/lib/data/exemple";
+import { chargerPi } from "@/lib/donnees";
 
 export function generateStaticParams() {
   return noeuds.map((n) => ({ id: n.id }));
@@ -25,8 +26,9 @@ const ONGLETS = ["Aperçu", "Métriques", "Services", "Journaux", "Incidents", "
 
 export default async function FicheNoeud({ params }: Params) {
   const { id } = await params;
-  const n = noeuds.find((x) => x.id === id);
-  if (!n) notFound();
+  if (!noeuds.some((x) => x.id === id)) notFound();
+  // Seule la Pi existe ; sa fiche vient de S5 si Prometheus est configuré.
+  const { noeud: n, mesure } = await chargerPi();
 
   return (
     <>
@@ -44,7 +46,7 @@ export default async function FicheNoeud({ params }: Params) {
             <h1 className="m-0 text-[26px] font-bold tracking-[-0.02em]">{n.nom}</h1>
             <span className="flex flex-wrap items-center gap-2">
               <Pastille etat={n.etat}>{n.libelleEtat}</Pastille>
-              <Source p={n.provenance} suffixe="jamais mesuré" />
+              <Source p={n.provenance} suffixe={mesure ? "mesure en direct" : "jamais mesuré"} />
             </span>
           </div>
           <div className="flex gap-2">
@@ -73,17 +75,19 @@ export default async function FicheNoeud({ params }: Params) {
           ))}
         </div>
 
+        {!mesure && (
         <NoteExemple>
           <b className="font-semibold">Données d’exemple.</b> La supervision n’est pas installée sur la Pi. Les métriques et
           états des services ci-dessous montrent l’affichage cible ; en production, chaque valeur absente reste « Inconnu ».
         </NoteExemple>
+        )}
 
         <div className="grid grid-cols-1 gap-[18px] xl:grid-cols-3">
           <div className="flex flex-col gap-[18px] xl:col-span-2">
             <section aria-labelledby="metriques" className="card flex flex-col gap-3.5 rounded-[14px] p-[18px]">
               <div className="flex items-baseline justify-between">
                 <h2 id="metriques" className="m-0 text-base font-bold">
-                  Métriques <Exemple />
+                  Métriques {!mesure && <Exemple />}
                 </h2>
                 <div role="group" aria-label="Plage" className="inline-flex gap-0.5 rounded-lg border border-line p-0.5">
                   {["1 h", "24 h", "7 j"].map((p, i) => (
@@ -101,7 +105,7 @@ export default async function FicheNoeud({ params }: Params) {
               </div>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 {n.series.map((s) => (
-                  <Sparkline key={s.libelle} serie={s} />
+                  <Sparkline key={s.libelle} serie={s} exemple={!mesure} />
                 ))}
               </div>
             </section>
@@ -109,7 +113,7 @@ export default async function FicheNoeud({ params }: Params) {
             <section aria-labelledby="services" className="card overflow-hidden rounded-[14px]">
               <div className="flex items-baseline justify-between px-[18px] pb-2 pt-4">
                 <h2 id="services" className="m-0 text-base font-bold">
-                  Services hébergés <Exemple />
+                  Services hébergés {!mesure && <Exemple />}
                 </h2>
                 <span className="font-mono text-[11px] text-muted">S5 · systemd</span>
               </div>
