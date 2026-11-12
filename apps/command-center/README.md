@@ -7,9 +7,10 @@ Spécification : [`docs/command-center/NEXUS_SPEC_V2.md`](../../docs/command-cen
 
 - Socle du front, fidèle aux maquettes NX-0 validées le 2026-11-10.
 - **S1 GitHub branché, en lecture seule.** Tâches, avancement M0, activité, décisions et CI viennent du dépôt, avec un cache de 5 minutes. Sans `GITHUB_TOKEN`, ou si GitHub ne répond pas, NEXUS revient aux données d'exemple et l'affiche dans la barre de page.
-- **Pi, sauvegardes, API d'administration : non branchées.** Elles restent « Inconnu » tant que leur supervision n'existe pas.
+- **S5 Raspberry Pi branché, en lecture seule.** CPU, mémoire, température, disques, ventilateur et services systemd viennent de Prometheus (cache de 30 secondes). Si Prometheus ne répond pas, la Pi passe à « Inconnu ». Aucun seuil d'alerte n'est affiché tant qu'il n'a pas été fixé après observation.
+- **Sauvegardes, API d'administration, Uptime Kuma : non branchés.** Ils restent « Inconnu ».
 - Aucune écriture : les boutons d'action sont visibles mais inactifs, avec la raison au survol.
-- La Raspberry Pi n'est ni contactée ni modifiée.
+- NEXUS ne fait que lire Prometheus sur la Pi. Il n'y exécute rien.
 
 ## Pages
 
@@ -42,6 +43,8 @@ npm run build
 - `lib/donnees.ts` : point d'entrée des pages. Choisit S1 ou l'exemple.
 - `lib/s1/github.ts` : lecture GitHub, GET uniquement, jeton côté serveur.
 - `lib/s1/mapping.ts` : conversion des issues, événements et CI en objets NEXUS, testée.
+- `lib/s5/prometheus.ts` : lecture de Prometheus, GET uniquement.
+- `lib/s5/mapping.ts` : requêtes PromQL et conversion en fiche de nœud, testée.
 - `lib/data/exemple.ts` : données d'exemple, utilisées sans connecteur.
 - `.env.example` : variables attendues, sans valeur réelle.
 - `app/globals.css` : design system V2 (jetons clair et sombre).

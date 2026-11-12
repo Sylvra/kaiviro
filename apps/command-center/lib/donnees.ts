@@ -1,12 +1,14 @@
 /**
- * Point d'entrée unique des pages : données du connecteur S1 si GitHub est configuré et répond,
+ * Point d'entrée unique des pages. S1 GitHub (projet) et S5 Prometheus (Raspberry Pi) si configurés ;
  * sinon données d'exemple, toujours marquées comme telles. Code serveur uniquement.
  */
 import { cache } from "react";
 import * as ex from "./data/exemple";
 import { githubConfigure, lireCi, lireDepot, lireEvenements, lireIssues } from "./s1/github";
 import { activiteParJour, calculerPlan, enRetard, estDecision, etatCi, jourParis, parMission, versTache } from "./s1/mapping";
-import type { Provenance, Tache } from "./types";
+import { prometheusConfigure, plage, requete } from "./s5/prometheus";
+import { REQUETES, SERIES, duree, etatNoeud, valeur, versSerie, versServices } from "./s5/mapping";
+import type { Etat, Noeud, Provenance, Tache } from "./types";
 
 /** Jalons du plan M0 (docs/roadmap/M0_PLAN.md §4), saisis dans NEXUS. */
 const JALONS = [
@@ -113,5 +115,86 @@ async function charger(): Promise<Tableau> {
   };
 }
 
+/* ---------- S5 · Raspberry Pi ---------- */
+
+export interface EtatPi {
+  noeud: Noeud;
+  /** Vrai si la fiche vient de Prometheus, faux si ce sont les données d'exemple. */
+  mesure: boolean;
+  cpu: number | null;
+  temperature: number | null;
+}
+
+async function chargerPiBrut(): Promise<EtatPi> {
+  const pi = ex.raspberryPi;
+  if (!prometheusConfigure()) return { noeud: pi, mesure: false, cpu: null, temperature: null };
+
+  const [services, demarrage, ventilateur, ssd, cpu, temperature, ...series] = await Promise.all([
+    requete(REQUETES.services),
+    requete(REQUETES.demarrage),
+    requete(REQUETES.ventilateur),
+    requete(REQUETES.ssd),
+    requete(REQUETES.cpu),
+    requete(REQUETES.temperature),
+    ...SERIES.map((s) => plage(REQUETES[s.cle])),
+  ]);
+  const joignable = services !== null;
+  const svc = versServices(services);
+  const e = etatNoeud(svc, joignable);
+  const occupationSsd = valeur(ssd);
+
+  return {
+    mesure: true,
+    cpu: valeur(cpu),
+    temperature: valeur(temperature),
+    noeud: {
+      ...pi,
+      etat: e.etat,
+      libelleEtat: e.libelle,
+      provenance: { source: "S5", libelle: "Prometheus · Node Exporter", exemple: false },
+      champs: [
+        ...pi.champs.map((c) => {
+          if (c.k !== "Refroidissement") return c;
+          const tr = valeur(ventilateur);
+          return { k: c.k, v: tr === null ? "Inconnu" : `Ventilateur actif · ${Math.round(tr)} tr/min` };
+        }),
+        { k: "Démarrée depuis", v: duree(valeur(demarrage)) },
+        { k: "SSD /srv occupé", v: occupationSsd === null ? "Inconnu" : `${occupationSsd} %` },
+      ],
+      services: svc,
+      series: SERIES.map((d, i) => versSerie(d, joignable ? (series[i] ?? null) : null)),
+      chronologie: [
+        { texte: "Supervision installée (Prometheus, Node Exporter)", meta: "2026-11-12 · paquets Debian", etat: "ok" },
+        ...pi.chronologie.filter((c) => !c.texte.startsWith("Supervision prévue")),
+      ],
+    },
+  };
+}
+
+/** Fiche de la Pi, lue une fois par requête. */
+export const chargerPi = cache(chargerPiBrut);
+
+/** Intègre l'état de la Pi à l'Overview : santé, sujets à traiter, état des sources. */
+async function avecPi(t: Tableau): Promise<Tableau> {
+  const { noeud, mesure } = await chargerPi();
+  if (!mesure) return t;
+  const etat: Etat = noeud.etat;
+  const libelle = etat === "ok" ? "OK · mesurée" : noeud.libelleEtat;
+  const aTraiter = t.aTraiter.filter((a) => a.titre !== "Raspberry Pi non supervisée");
+  if (etat !== "ok")
+    aTraiter.unshift({
+      etat: etat === "alerte" ? "alerte" : etat === "attention" ? "attention" : "inconnu",
+      titre: `Raspberry Pi : ${noeud.libelleEtat.replace(/^Inconnu · /, "")}`,
+      detail: "S5 · Prometheus",
+      href: `/infrastructure/noeuds/${noeud.id}`,
+    });
+  return {
+    ...t,
+    etatSources: t.connecte ? "S1 GitHub et S5 Pi branchés · autres sources non branchées" : `${t.etatSources} · S5 Pi branché`,
+    aTraiter,
+    sante: t.sante.map((s) => (s.nom === "Raspberry Pi 5" ? { ...s, etat, libelle } : s)),
+  };
+}
+
 /** Une seule lecture par requête, partagée par la barre, la palette et la page. */
-export const chargerTableau = cache(charger);
+export const chargerTableau = cache(async () => avecPi(await charger()));

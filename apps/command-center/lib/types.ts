@@ -55,7 +55,8 @@ export interface Serie {
   libelle: string;
   unite: string;
   max: number;
-  seuil: number;
+  /** Seuil d'alerte, seulement s'il a été fixé après observation. */
+  seuil?: number;
   valeurs: number[];
 }
 

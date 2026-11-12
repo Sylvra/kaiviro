@@ -16,5 +16,6 @@ Procédure complète : [RASPBERRY_PI_ADMIN_CENTER](../../docs/operations/RASPBER
 |---|---|---|
 | [`sshd_config.d/10-kaiviro-hardening.conf`](sshd_config.d/10-kaiviro-hardening.conf) | `/etc/ssh/sshd_config.d/` | Durcissement SSH |
 | [`scripts/check-host.sh`](scripts/check-host.sh) | `/opt/kaiviro/scripts/` | Contrôles en lecture seule après chaque étape |
+| [`scripts/install-supervision.sh`](scripts/install-supervision.sh) | Lancé une fois avec `sudo` | Étape 2 sans Docker : Node Exporter et Prometheus (paquets Debian), publiés sur le tailnet seulement. Appliqué le 2026-11-12. |
 
 Autres dossiers : [`../monitoring/`](../monitoring/README.md), [`../network/`](../network/README.md), [`../backups/`](../backups/README.md).
