@@ -48,5 +48,27 @@ export async function lireEvenements(): Promise<GhEvent[] | null> {
   }
   return tous;
 }
+/** S2 · contenu d'un dossier du dépôt sur une branche. */
+export const lireDossier = (chemin: string, branche = "develop") =>
+  lire<{ name: string; path: string; type: string; html_url: string }[]>(`/contents/${chemin}?ref=${encodeURIComponent(branche)}`);
+
+/** S2 · texte brut d'un fichier du dépôt. */
+export async function lireFichier(chemin: string, branche = "develop"): Promise<string | null> {
+  try {
+    const res = await fetch(`${API}/repos/${process.env.GITHUB_REPO}/contents/${chemin}?ref=${encodeURIComponent(branche)}`, {
+      headers: {
+        Accept: "application/vnd.github.raw+json",
+        "X-GitHub-Api-Version": "2022-11-28",
+        Authorization: `Bearer ${process.env.GITHUB_TOKEN}`,
+        "User-Agent": "kaiviro-nexus",
+      },
+      next: { revalidate: REVALIDATE },
+    });
+    return res.ok ? await res.text() : null;
+  } catch {
+    return null;
+  }
+}
+
 /** Exige « Actions : read » sur le jeton ; sinon null et la CI reste « inconnue ». */
 export const lireCi = async () => (await lire<{ workflow_runs: GhRun[] }>("/actions/runs?per_page=10"))?.workflow_runs ?? null;

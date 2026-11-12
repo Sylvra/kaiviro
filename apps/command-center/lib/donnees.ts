@@ -4,7 +4,9 @@
  */
 import { cache } from "react";
 import * as ex from "./data/exemple";
-import { githubConfigure, lireCi, lireDepot, lireEvenements, lireIssues } from "./s1/github";
+import { githubConfigure, lireCi, lireDepot, lireDossier, lireEvenements, lireFichier, lireIssues } from "./s1/github";
+import { trierDecisions, versDecision, type Decision } from "./s1/decisions";
+import { versAdr, type Adr } from "./s2/adr";
 import { activiteParJour, calculerPlan, enRetard, estDecision, etatCi, jourParis, parMission, versTache } from "./s1/mapping";
 import { prometheusConfigure, plage, requete } from "./s5/prometheus";
 import { REQUETES, SERIES, duree, etatNoeud, valeur, versSerie, versServices } from "./s5/mapping";
@@ -84,6 +86,7 @@ async function charger(): Promise<Tableau> {
       etat: "attention",
       titre: `${decisions.length} décision${decisions.length > 1 ? "s" : ""} à trancher`,
       detail: `${decisions[0]!.title}${decisions.length > 1 ? ` · +${decisions.length - 1}` : ""}`,
+      href: "/projet",
     });
   if (ci.etat === "alerte") aTraiter.unshift({ etat: "alerte", titre: ci.libelle, detail: "GitHub Actions" });
 
@@ -114,6 +117,33 @@ async function charger(): Promise<Tableau> {
     tachesProvenance: s1("GitHub Issues"),
   };
 }
+
+/* ---------- S1 · Décisions, S2 · ADR ---------- */
+
+export interface Liste<T> {
+  elements: T[];
+  /** Raison affichée quand la source ne répond pas ou n'est pas configurée. */
+  absence?: string;
+}
+
+async function chargerDecisionsBrut(): Promise<Liste<Decision>> {
+  if (!githubConfigure()) return { elements: [], absence: "GitHub non configuré" };
+  const issues = await lireIssues();
+  if (!issues) return { elements: [], absence: "GitHub injoignable" };
+  return { elements: trierDecisions(issues.map(versDecision).filter((d): d is Decision => d !== null)) };
+}
+export const chargerDecisions = cache(chargerDecisionsBrut);
+
+async function chargerAdrBrut(): Promise<Liste<Adr>> {
+  if (!githubConfigure()) return { elements: [], absence: "GitHub non configuré" };
+  const dossier = await lireDossier("docs/adr");
+  if (!dossier) return { elements: [], absence: "GitHub injoignable" };
+  const fichiers = dossier.filter((f) => f.type === "file" && /^ADR-\d{4}.*\.md$/.test(f.name));
+  const textes = await Promise.all(fichiers.map((f) => lireFichier(f.path)));
+  const adr = fichiers.map((f, i) => versAdr(f.path, textes[i] ?? "", f.html_url));
+  return { elements: adr.sort((a, b) => a.id.localeCompare(b.id)) };
+}
+export const chargerAdr = cache(chargerAdrBrut);
 
 /* ---------- S5 · Raspberry Pi ---------- */
 
