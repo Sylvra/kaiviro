@@ -10,7 +10,8 @@ import { versAdr, type Adr } from "./s2/adr";
 import { activiteParJour, calculerPlan, enRetard, estDecision, etatCi, jourParis, parMission, versTache } from "./s1/mapping";
 import { lirePullsOuvertes } from "./s1/github";
 import { lireCibles, lireRegles, lireRuntime, lireTsdb, lireVersion, prometheusConfigure, plage, requete } from "./s5/prometheus";
-import { REQUETES, SERIES, duree, etatNoeud, valeur, versCibles, versSerie, versServices, type Cible } from "./s5/mapping";
+import { REQUETES, SERIES, duree, etatNoeud, valeur, versCibles, versSerie, versServices, type Cible, type Echantillon } from "./s5/mapping";
+import { REQUETES_STOCKAGE, versDisques, type Disque } from "./s5/stockage";
 import type { Etat, Noeud, Provenance, Tache } from "./types";
 
 /** Jalons du plan M0 (docs/roadmap/M0_PLAN.md §4), saisis dans NEXUS. */
@@ -313,6 +314,58 @@ async function chargerCloudBrut(): Promise<ServiceCloud[]> {
   ];
 }
 export const chargerCloud = cache(chargerCloudBrut);
+
+/* ---------- S5 · Stockage (Backups & Storage) ---------- */
+
+export interface Stockage {
+  joignable: boolean;
+  disques: Disque[];
+  majEnAttente: number | null;
+  redemarrageRequis: boolean | null;
+}
+
+async function chargerStockageBrut(): Promise<Stockage> {
+  if (!prometheusConfigure()) return { joignable: false, disques: [], majEnAttente: null, redemarrageRequis: null };
+  const cles = Object.keys(REQUETES_STOCKAGE) as (keyof typeof REQUETES_STOCKAGE)[];
+  const reponses = await Promise.all(cles.map((k) => requete(REQUETES_STOCKAGE[k])));
+  const r = Object.fromEntries(cles.map((k, i) => [k, reponses[i] ?? null])) as Record<keyof typeof REQUETES_STOCKAGE, Echantillon[] | null>;
+  const reboot = valeur(r.redemarrage);
+  return {
+    joignable: r.taille !== null,
+    disques: versDisques(r),
+    majEnAttente: valeur(r.majEnAttente),
+    redemarrageRequis: reboot === null ? null : reboot > 0,
+  };
+}
+export const chargerStockage = cache(chargerStockageBrut);
+
+/* ---------- Settings · état des sources (CRM_SPEC §4, S1 à S9) ---------- */
+
+export interface EtatSource {
+  id: string;
+  nom: string;
+  contenu: string;
+  etat: Etat;
+  libelle: string;
+  pages?: string;
+}
+
+async function chargerSourcesBrut(): Promise<EtatSource[]> {
+  const [t, adr, sup] = await Promise.all([chargerTableau(), chargerAdr(), chargerSupervision()]);
+  const branche = (ok: boolean, motif: string) => (ok ? { etat: "ok" as Etat, libelle: "Branchée · lecture seule" } : { etat: "inconnu" as Etat, libelle: motif });
+  return [
+    { id: "S1", nom: "GitHub API", contenu: "Issues, décisions, activité, CI, dépôt", ...branche(t.connecte, githubConfigure() ? "Injoignable" : "Non configurée"), pages: "Overview, Tâches, Projet, Cloud" },
+    { id: "S2", nom: "Dépôt · docs/adr", contenu: "Registre des ADR", ...branche(!adr.absence, adr.absence ?? ""), pages: "Knowledge Center" },
+    { id: "S3", nom: "Vault Drive", contenu: "Notes et comptes rendus", etat: "inconnu", libelle: "Non branchée dans NEXUS" },
+    { id: "S4", nom: "Uptime Kuma", contenu: "Sondes de disponibilité", etat: "inconnu", libelle: "Non installé sur la Pi" },
+    { id: "S5", nom: "Prometheus + Node Exporter", contenu: "Métriques, services systemd, disques, SMART", ...branche(sup.joignable, sup.configure ? "Injoignable" : "Non configurée"), pages: "Pi, Carte, Services, Supervision, Stockage" },
+    { id: "S6", nom: "Journal de sauvegarde", contenu: "Dernière sauvegarde, test de restauration", etat: "inconnu", libelle: "Aucune sauvegarde KAIVIRO" },
+    { id: "S7", nom: "Contrat de supervision du backend", contenu: "/health, /metrics", etat: "inconnu", libelle: "API non déployée (mission B)" },
+    { id: "S8", nom: "Supabase · schéma admin", contenu: "Comptes, rôles, audit, CRM", etat: "inconnu", libelle: "Candidat · ADR-0004" },
+    { id: "S9", nom: "Passerelle IA", contenu: "Modèles, latence, coût", etat: "inconnu", libelle: "Prévue en M5" },
+  ];
+}
+export const chargerSources = cache(chargerSourcesBrut);
 
 /** Intègre l'état de la Pi à l'Overview : santé, sujets à traiter, état des sources. */
 async function avecPi(t: Tableau): Promise<Tableau> {
