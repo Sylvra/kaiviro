@@ -21,6 +21,9 @@ Spécification : [`docs/command-center/NEXUS_SPEC_V2.md`](../../docs/command-cen
 | `/connaissances` | Knowledge Center : registre des ADR de develop, statut et décisions liées |
 | `/taches` | Tâches en table ou kanban (`?vue=kanban`), aperçu de la tâche (`?t=<id>`) |
 | `/infrastructure/carte` | Carte topologique ou table (`?vue=table`) |
+| `/infrastructure/services` | Containers & Services : services systemd suivis, conteneurs, API du backend |
+| `/infrastructure/supervision` | Monitoring & Metrics : cibles Prometheus, séries, règles d’alerte, moniteurs |
+| `/infrastructure/cloud` | Cloud Services : GitHub et Tailscale mesurés, Supabase et Vercel candidats |
 | `/infrastructure/noeuds/raspberry-pi-5` | Fiche de nœud : métriques, services, relations, chronologie |
 
 Recherche rapide : `Ctrl K`. Thème clair ou sombre : bouton de la barre, choix mémorisé dans le navigateur.
