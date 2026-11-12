@@ -10,7 +10,7 @@ Spécification : [`docs/command-center/NEXUS_SPEC_V2.md`](../../docs/command-cen
 - **S5 Raspberry Pi branché, en lecture seule.** CPU, mémoire, température, disques, ventilateur et services systemd viennent de Prometheus (cache de 30 secondes). Si Prometheus ne répond pas, la Pi passe à « Inconnu ». Aucun seuil d'alerte n'est affiché tant qu'il n'a pas été fixé après observation.
 - **Sauvegardes, API d'administration, Uptime Kuma : non branchés.** Ils restent « Inconnu ».
 - Aucune écriture : les boutons d'action sont visibles mais inactifs, avec la raison au survol.
-- La Raspberry Pi n'est ni contactée ni modifiée.
+- NEXUS ne fait que lire Prometheus sur la Pi. Il n'y exécute rien.
 
 ## Pages
 
