@@ -26,6 +26,8 @@ case "$REPO_NAME" in
 esac
 # Le mot de passe est lu depuis un fichier root:root 0400, jamais passé en argument.
 export RESTIC_PASSWORD_FILE
+# Dépôt hors site via rclone : la configuration de root est dans un fichier dédié (install-copie-drive.sh).
+if [ -n "${RCLONE_CONFIG:-}" ]; then export RCLONE_CONFIG; fi
 
 case "$SCOPE" in
   # Configuration de la Pi telle qu'elle existe : SSH, supervision, unités systemd.

@@ -19,7 +19,12 @@ export default async function Stockage() {
   const s = await chargerStockage();
   const maintenant = Math.floor(Date.now() / 1000);
   const etats = (id: string) => s.sauvegardes.filter((x) => x.perimetre === id);
-  const configOk = etats("pi-config").length === 2 && etats("pi-config").every((x) => x.etat === "ok");
+  const depotOk = (d: string) => {
+    const e = etats("pi-config").filter((x) => x.depot === d);
+    return e.length === 2 && e.every((x) => x.etat === "ok");
+  };
+  const configOk = depotOk("local");
+  const driveOk = depotOk("offsite");
 
   return (
     <>
@@ -38,10 +43,15 @@ export default async function Stockage() {
             <b className="font-semibold">Aucune sauvegarde KAIVIRO mesurée.</b> La recette M0 exige une sauvegarde et une restauration de test
             réussie (BACKUP_AND_RESTORE).
           </p>
+        ) : configOk && driveOk ? (
+          <p role="note" className="m-0 rounded-xl bg-accent-soft px-3.5 py-3 text-[13px] text-accent-ink">
+            <b className="font-semibold">Configuration de la Pi : trois copies, restaurations vérifiées.</b> Sur la Pi, sur le SSD et sur Google
+            Drive (dépôt chiffré, Google ne voit que des blocs chiffrés).
+          </p>
         ) : configOk ? (
           <p role="note" className="m-0 rounded-xl bg-warn-bg px-3.5 py-3 text-[13px] text-warn-ink">
             <b className="font-semibold">Configuration de la Pi sauvegardée et restauration vérifiée.</b> Copie sur le SSD seulement : la copie hors
-            site (règle 3-2-1) reste à décider.
+            site sur Google Drive (règle 3-2-1) n’est pas encore en place.
           </p>
         ) : null}
 
@@ -123,7 +133,7 @@ export default async function Stockage() {
                         <Pastille etat={x.etat}>{x.libelle}</Pastille>
                         <span className="text-ink-2">{x.genre === "backup" ? "Sauvegarde" : "Test de restauration"}</span>
                         <span className="text-muted">
-                          {x.dernierSucces ? `succès ${age(x.dernierSucces, maintenant)}` : "aucun succès"} · dépôt {x.depot === "local" ? "SSD" : x.depot}
+                          {x.dernierSucces ? `succès ${age(x.dernierSucces, maintenant)}` : "aucun succès"} · dépôt {x.depot === "local" ? "SSD" : x.depot === "offsite" ? "Google Drive" : x.depot}
                         </span>
                       </span>
                     ))}

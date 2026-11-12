@@ -50,7 +50,7 @@ Mise à jour du 2026-11-12, selon la Pi réelle (sans WireGuard, nftables ni Doc
 |---|---|---|
 | 1 | SSD de la Pi | données vivantes |
 | 2 | Disque USB dédié | même lieu, monté le temps de la sauvegarde |
-| 3 | Hors site | à choisir par les humains : second disque chez l'autre admin, ou stockage objet (**payant éventuel = décision humaine**) |
+| 3 | Hors site | **Google Drive de Johan** (décision du 2026-11-12, espace déjà disponible, aucun coût nouveau). Dépôt restic chiffré `KAIVIRO-BACKUPS/restic` via rclone |
 
 ## 5. Rétention proposée
 
