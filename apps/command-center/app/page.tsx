@@ -5,7 +5,7 @@ import { Icon } from "@/components/Icon";
 import { Topbar } from "@/components/Topbar";
 import { Bloc, BoutonInactif, Point, Source } from "@/components/ui";
 import { ETAT } from "@/lib/etats";
-import { aTraiter, activite, missions, plan, sante } from "@/lib/data/exemple";
+import { chargerTableau } from "@/lib/donnees";
 
 const SEGMENTS = [
   { cle: "termine", label: "Terminée", fond: "var(--accent)" },
@@ -14,7 +14,8 @@ const SEGMENTS = [
   { cle: "afaire", label: "À faire", fond: "var(--todo-fill)", anneau: true },
 ] as const;
 
-export default function Overview() {
+export default async function Overview() {
+  const { plan, aTraiter, activite, missions, sante, connecte } = await chargerTableau();
   const fait = plan.termine.at(-1)!;
   const prevuJour = plan.prevu[plan.jourCourant - 1]!;
   const retards = missions.reduce((s, m) => s + m.retard, 0);
@@ -42,7 +43,15 @@ export default function Overview() {
             J{plan.jourCourant} sur {plan.duree} · {plan.jalon}
           </p>
           <h1 className="m-0 text-[30px] font-bold leading-tight tracking-[-0.025em]">
-            M0 avance, <span className="text-muted">mais {retards} tâches ont passé leur fenêtre.</span>
+            {retards > 0 ? (
+              <>
+                M0 avance, <span className="text-muted">mais {retards} tâche{retards > 1 ? "s ont" : " a"} passé {retards > 1 ? "leur" : "sa"} fenêtre.</span>
+              </>
+            ) : (
+              <>
+                M0 avance, <span className="text-muted">aucune tâche hors fenêtre.</span>
+              </>
+            )}
           </h1>
         </div>
 
@@ -228,7 +237,7 @@ export default function Overview() {
               ))}
             </ul>
             <span className="text-xs text-muted">
-              {mesures} source mesurée sur {sante.length} · exemple · rien n’est supposé sain
+              {mesures} source mesurée sur {sante.length}{connecte ? "" : " · exemple"} · rien n’est supposé sain
             </span>
           </Bloc>
         </div>

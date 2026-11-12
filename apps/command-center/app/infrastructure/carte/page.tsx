@@ -4,6 +4,7 @@ import { Topbar } from "@/components/Topbar";
 import { Pastille, Point } from "@/components/ui";
 import { ETAT } from "@/lib/etats";
 import { carte, raspberryPi } from "@/lib/data/exemple";
+import { chargerTableau } from "@/lib/donnees";
 import type { Etat } from "@/lib/types";
 
 export const metadata: Metadata = { title: "Infrastructure Map" };
@@ -18,6 +19,15 @@ const LEGENDE: { etat: Etat; texte: string }[] = [
 export default async function Carte({ searchParams }: { searchParams: Promise<{ vue?: string }> }) {
   const vue = (await searchParams).vue === "table" ? "table" : "carte";
   const pi = raspberryPi;
+  const { connecte, sante } = await chargerTableau();
+  const gh = sante.find((x) => x.nom === "GitHub")!;
+  // Seul GitHub est mesuré (S1) ; les autres nœuds gardent leur état saisi, jamais supposé sain.
+  const noeudsCarte = carte.noeuds.map((n) => n.id === "github"
+      ? { ...n, etat: gh.etat, libelleEtat: gh.libelle }
+      : n.id === "front" && connecte
+        ? { ...n, libelleEtat: "S1 branché · reste d’exemple" }
+        : n,
+  );
 
   return (
     <>
@@ -39,7 +49,7 @@ export default async function Carte({ searchParams }: { searchParams: Promise<{ 
           ))}
         </div>
         <span className="flex-1" />
-        <span className="text-xs text-muted">Topologie saisie dans NEXUS · états d’exemple</span>
+        <span className="text-xs text-muted">Topologie saisie dans NEXUS · {connecte ? "GitHub mesuré (S1), le reste non branché" : "états d’exemple"}</span>
       </div>
 
       <div className="grid grid-cols-1 items-start gap-4 px-5 pb-8 sm:px-9 2xl:grid-cols-[minmax(0,1fr)_340px]">
@@ -65,7 +75,7 @@ export default async function Carte({ searchParams }: { searchParams: Promise<{ 
                 </g>
               </svg>
 
-              {carte.noeuds.map((n, i) => (
+              {noeudsCarte.map((n, i) => (
                 <div
                   key={n.id}
                   className="fade-up absolute flex w-[180px] flex-col gap-1 rounded-xl border bg-surface px-3.5 py-3 shadow-[0_10px_24px_-16px_rgb(0_0_0/0.5)]"
@@ -133,7 +143,7 @@ export default async function Carte({ searchParams }: { searchParams: Promise<{ 
                 </tr>
               </thead>
               <tbody>
-                {[...carte.noeuds, { id: pi.id, nom: pi.nom, nature: "Nœud · Administration", etat: pi.etat, libelleEtat: pi.libelleEtat }].map((n) => (
+                {[...noeudsCarte, { id: pi.id, nom: pi.nom, nature: "Nœud · Administration", etat: pi.etat, libelleEtat: pi.libelleEtat }].map((n) => (
                   <tr key={n.id} className="row-link">
                     <td className="border-b border-grid py-2.5 pl-4 font-semibold">
                       {n.id === pi.id ? (

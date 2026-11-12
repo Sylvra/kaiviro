@@ -46,7 +46,7 @@ export function Activity({ jours, nombres, indexJ1 }: { jours: string[]; nombres
       </div>
       <div className="flex justify-between font-mono text-[11px] text-muted">
         <span>{jours[0]}</span>
-        <span>{jours[indexJ1]} · J1</span>
+        {indexJ1 >= 0 && <span>{jours[indexJ1]} · J1</span>}
         <span>{jours[dernier]}</span>
       </div>
     </div>

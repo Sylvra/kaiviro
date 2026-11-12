@@ -38,6 +38,8 @@ export interface Tache {
   relations: Relation[];
   chemin?: string;
   assignees?: string;
+  /** Page de la source (issue GitHub), si la tâche vient d'un connecteur. */
+  lien?: string;
   chronologie: EvenementChrono[];
 }
 
