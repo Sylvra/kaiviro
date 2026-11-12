@@ -17,6 +17,8 @@ Spécification : [`docs/command-center/NEXUS_SPEC_V2.md`](../../docs/command-cen
 | Route | Contenu |
 | --- | --- |
 | `/` | Overview : avancement M0, à traiter, missions, activité, infrastructure |
+| `/projet` | Project Management : projet M0, jalons, décisions GitHub à trancher (`?d=<id>`) |
+| `/connaissances` | Knowledge Center : registre des ADR de develop, statut et décisions liées |
 | `/taches` | Tâches en table ou kanban (`?vue=kanban`), aperçu de la tâche (`?t=<id>`) |
 | `/infrastructure/carte` | Carte topologique ou table (`?vue=table`) |
 | `/infrastructure/noeuds/raspberry-pi-5` | Fiche de nœud : métriques, services, relations, chronologie |
@@ -43,6 +45,8 @@ npm run build
 - `lib/donnees.ts` : point d'entrée des pages. Choisit S1 ou l'exemple.
 - `lib/s1/github.ts` : lecture GitHub, GET uniquement, jeton côté serveur.
 - `lib/s1/mapping.ts` : conversion des issues, événements et CI en objets NEXUS, testée.
+- `lib/s1/decisions.ts` : issues `decision` vers objets Décision, testé.
+- `lib/s2/adr.ts` : en-têtes des ADR vers registre, testé.
 - `lib/s5/prometheus.ts` : lecture de Prometheus, GET uniquement.
 - `lib/s5/mapping.ts` : requêtes PromQL et conversion en fiche de nœud, testée.
 - `lib/data/exemple.ts` : données d'exemple, utilisées sans connecteur.

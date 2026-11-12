@@ -28,7 +28,7 @@ export default async function Overview() {
         miettes={[{ label: "Workspace" }, { label: "Overview" }]}
         actions={
           <>
-            <BoutonInactif raison="Agence virtuelle 3D : phase NX-4">Agence 3D</BoutonInactif>
+            <BoutonInactif raison="Agence virtuelle 3D : phase NX-3">Agence 3D</BoutonInactif>
             <BoutonInactif primaire raison="Création indisponible : API d’administration non déployée">
               <Icon nom="plus" taille={13} epaisseur={2.4} />
               Nouveau
@@ -45,7 +45,7 @@ export default async function Overview() {
           <h1 className="m-0 text-[30px] font-bold leading-tight tracking-[-0.025em]">
             {retards > 0 ? (
               <>
-                M0 avance, <span className="text-muted">mais {retards} tâche{retards > 1 ? "s ont" : " a"} passé {retards > 1 ? "leur" : "sa"} fenêtre.</span>
+                M0 est en retard, <span className="text-muted">{retards} tâche{retards > 1 ? "s ont" : " a"} passé {retards > 1 ? "leur" : "sa"} fenêtre.</span>
               </>
             ) : (
               <>
