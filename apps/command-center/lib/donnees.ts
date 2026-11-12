@@ -8,8 +8,9 @@ import { githubConfigure, lireCi, lireDepot, lireDossier, lireEvenements, lireFi
 import { trierDecisions, versDecision, type Decision } from "./s1/decisions";
 import { versAdr, type Adr } from "./s2/adr";
 import { activiteParJour, calculerPlan, enRetard, estDecision, etatCi, jourParis, parMission, versTache } from "./s1/mapping";
-import { prometheusConfigure, plage, requete } from "./s5/prometheus";
-import { REQUETES, SERIES, duree, etatNoeud, valeur, versSerie, versServices } from "./s5/mapping";
+import { lirePullsOuvertes } from "./s1/github";
+import { lireCibles, lireRegles, lireRuntime, lireTsdb, lireVersion, prometheusConfigure, plage, requete } from "./s5/prometheus";
+import { REQUETES, SERIES, duree, etatNoeud, valeur, versCibles, versSerie, versServices, type Cible } from "./s5/mapping";
 import type { Etat, Noeud, Provenance, Tache } from "./types";
 
 /** Jalons du plan M0 (docs/roadmap/M0_PLAN.md §4), saisis dans NEXUS. */
@@ -203,6 +204,115 @@ async function chargerPiBrut(): Promise<EtatPi> {
 
 /** Fiche de la Pi, lue une fois par requête. */
 export const chargerPi = cache(chargerPiBrut);
+
+/* ---------- S5 · Supervision (Monitoring & Metrics) ---------- */
+
+export interface Supervision {
+  configure: boolean;
+  joignable: boolean;
+  cibles: Cible[];
+  /** Nombre de règles d'alerte chargées ; null si inconnu. */
+  regles: number | null;
+  series: number | null;
+  /** Heures de données conservées en mémoire vive (tête de la base). */
+  couvertureHeures: number | null;
+  demarreLe?: string;
+  retention?: string;
+  version?: string;
+}
+
+async function chargerSupervisionBrut(): Promise<Supervision> {
+  if (!prometheusConfigure()) return { configure: false, joignable: false, cibles: [], regles: null, series: null, couvertureHeures: null };
+  const [cibles, regles, tsdb, runtime, version] = await Promise.all([lireCibles(), lireRegles(), lireTsdb(), lireRuntime(), lireVersion()]);
+  return {
+    configure: true,
+    joignable: cibles !== null,
+    cibles: versCibles(cibles),
+    regles: regles ? regles.reduce((n, g) => n + g.rules.length, 0) : null,
+    series: tsdb?.numSeries ?? null,
+    couvertureHeures: tsdb ? Math.round(((tsdb.maxTime - tsdb.minTime) / 3_600_000) * 10) / 10 : null,
+    demarreLe: runtime?.startTime,
+    retention: runtime?.storageRetention,
+    version: version ?? undefined,
+  };
+}
+export const chargerSupervision = cache(chargerSupervisionBrut);
+
+/* ---------- Cloud Services ---------- */
+
+export interface ServiceCloud {
+  id: string;
+  nom: string;
+  role: string;
+  etat: Etat;
+  libelle: string;
+  source: string;
+  champs: { k: string; v: string }[];
+  lien?: string;
+  candidat?: boolean;
+}
+
+async function chargerCloudBrut(): Promise<ServiceCloud[]> {
+  const t = await chargerTableau();
+  const gh = t.sante.find((s) => s.nom === "GitHub")!;
+  const [depot, pulls] = githubConfigure() ? await Promise.all([lireDepot(), lirePullsOuvertes()]) : [null, null];
+  const pi = await chargerPi();
+  const tailscaled = pi.mesure ? pi.noeud.services.find((s) => s.nom === "tailscaled") : undefined;
+
+  return [
+    {
+      id: "github",
+      nom: "GitHub",
+      role: "Dépôt, issues, CI (GitHub Actions)",
+      etat: depot ? gh.etat : "inconnu",
+      libelle: depot ? gh.libelle : "Inconnu · non joint",
+      source: "S1 · API GitHub",
+      lien: depot?.html_url,
+      champs: depot
+        ? [
+            { k: "Visibilité", v: depot.visibility === "public" ? "Public" : "Privé" },
+            { k: "Branche par défaut", v: depot.default_branch },
+            { k: "Dernier push", v: jourParis(depot.pushed_at) },
+            { k: "PR ouvertes", v: pulls ? String(pulls.length) : "Inconnu" },
+            { k: "Issues et PR ouvertes", v: String(depot.open_issues_count) },
+          ]
+        : [],
+    },
+    {
+      id: "tailscale",
+      nom: "Tailscale",
+      role: "Réseau privé d’administration (VPN)",
+      etat: tailscaled?.etat ?? "inconnu",
+      libelle: tailscaled ? `Démon ${tailscaled.libelleEtat} sur la Pi` : "Inconnu · non sondé",
+      source: tailscaled ? "S5 · systemd sur la Pi" : "Aucune",
+      champs: [
+        { k: "Décision", v: "#25 Tailscale ou WireGuard, à trancher" },
+        { k: "Usage actuel", v: "Accès à Prometheus et à la Pi" },
+      ],
+    },
+    {
+      id: "supabase",
+      nom: "Supabase",
+      role: "PostgreSQL et authentification",
+      etat: "inconnu",
+      libelle: "Candidat · aucun compte",
+      source: "Aucune",
+      candidat: true,
+      champs: [{ k: "Décision", v: "#26, ADR-0004 · à trancher" }],
+    },
+    {
+      id: "vercel",
+      nom: "Vercel",
+      role: "Hébergement du front",
+      etat: "inconnu",
+      libelle: "Candidat · aucun compte",
+      source: "Aucune",
+      candidat: true,
+      champs: [{ k: "Décision", v: "ADR-0014 · proposée" }],
+    },
+  ];
+}
+export const chargerCloud = cache(chargerCloudBrut);
 
 /** Intègre l'état de la Pi à l'Overview : santé, sujets à traiter, état des sources. */
 async function avecPi(t: Tableau): Promise<Tableau> {

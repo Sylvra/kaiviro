@@ -29,9 +29,9 @@ export const NAV: GroupeNav[] = [
     entrees: [
       { label: "Infrastructure Map", icone: "map", href: "/infrastructure/carte" },
       { label: "Servers & Nodes", icone: "server", href: "/infrastructure/noeuds/raspberry-pi-5" },
-      { label: "Cloud Services", icone: "cloud", phase: "NX-2" },
-      { label: "Containers & Services", icone: "box", phase: "NX-2" },
-      { label: "Monitoring & Metrics", icone: "activity", phase: "NX-2" },
+      { label: "Cloud Services", icone: "cloud", href: "/infrastructure/cloud" },
+      { label: "Containers & Services", icone: "box", href: "/infrastructure/services" },
+      { label: "Monitoring & Metrics", icone: "activity", href: "/infrastructure/supervision" },
       { label: "Logs & Incidents", icone: "logs", phase: "NX-3" },
       { label: "Backups & Storage", icone: "db", phase: "NX-2" },
     ],

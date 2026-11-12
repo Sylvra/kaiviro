@@ -35,7 +35,9 @@ async function lire<T>(chemin: string): Promise<T | null> {
   }
 }
 
-export const lireDepot = () => lire<{ created_at: string }>("");
+export const lireDepot = () =>
+  lire<{ created_at: string; pushed_at: string; default_branch: string; visibility: string; open_issues_count: number; html_url: string }>("");
+export const lirePullsOuvertes = () => lire<{ number: number }[]>("/pulls?state=open&per_page=100");
 export const lireIssues = () => lire<GhIssue[]>("/issues?state=all&per_page=100");
 /** GitHub sert au plus 300 événements, par pages de 100 : on les lit toutes. */
 export async function lireEvenements(): Promise<GhEvent[] | null> {

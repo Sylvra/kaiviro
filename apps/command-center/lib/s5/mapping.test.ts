@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { SERIES, duree, etatNoeud, valeur, versSerie, versServices, type Echantillon } from "./mapping";
+import { SERIES, duree, etatNoeud, heureParis, valeur, versCibles, versSerie, versServices, type Echantillon } from "./mapping";
 
 /** Réponses synthétiques, au format de l'API Prometheus. */
 const unite = (name: string, state: string): Echantillon => ({ metric: { name: `${name}.service`, state }, value: [0, "1"] });
@@ -38,5 +38,28 @@ describe("S5 · mapping Prometheus", () => {
     expect(duree(1_278_675)).toBe("14 j 19 h");
     expect(duree(7200)).toBe("2 h");
     expect(duree(null)).toBe("Inconnu");
+  });
+});
+
+describe("S5 · cibles de collecte", () => {
+  const brute = (health: "up" | "down" | "unknown", job = "node") => ({
+    labels: { job, instance: "127.0.0.1:9100" },
+    scrapeUrl: "http://127.0.0.1:9100/metrics",
+    lastError: health === "down" ? "connection refused" : "",
+    lastScrape: "2026-01-01T10:00:00Z",
+    lastScrapeDuration: 0.0429,
+    health,
+    scrapeInterval: "30s",
+  });
+  it("traduit la santé d'une cible, sans jamais supposer qu'elle est saine", () => {
+    const [up, down, inconnue] = versCibles([brute("up"), brute("down"), brute("unknown", "autre")]);
+    expect(up).toMatchObject({ job: "Node Exporter (hôte)", etat: "ok", dureeMs: 43 });
+    expect(down).toMatchObject({ etat: "alerte", erreur: "connection refused" });
+    expect(inconnue).toMatchObject({ job: "autre", etat: "inconnu" });
+    expect(versCibles(null)).toEqual([]);
+  });
+  it("affiche l'heure à Paris", () => {
+    expect(heureParis("2026-01-01T10:00:00Z")).toBe("11:00:00");
+    expect(heureParis("pas une date")).toBe("—");
   });
 });

@@ -96,3 +96,47 @@ export function duree(secondes: number | null): string {
   const h = Math.floor((secondes % 86_400) / 3600);
   return j > 0 ? `${j} j ${h} h` : `${h} h`;
 }
+
+/* ---------- Supervision : cibles de collecte et état de Prometheus ---------- */
+
+export interface CibleBrute {
+  labels: Record<string, string>;
+  scrapeUrl: string;
+  lastError: string;
+  lastScrape: string;
+  lastScrapeDuration: number;
+  health: "up" | "down" | "unknown";
+  scrapeInterval: string;
+}
+
+export interface Cible {
+  job: string;
+  adresse: string;
+  etat: Etat;
+  libelle: string;
+  derniereCollecte: string;
+  dureeMs: number | null;
+  intervalle: string;
+  erreur?: string;
+}
+
+const JOBS: Record<string, string> = { node: "Node Exporter (hôte)", prometheus: "Prometheus (lui-même)" };
+
+export function versCibles(brutes: CibleBrute[] | null): Cible[] {
+  return (brutes ?? []).map((c) => ({
+    job: JOBS[c.labels.job ?? ""] ?? c.labels.job ?? "inconnu",
+    adresse: c.labels.instance ?? c.scrapeUrl,
+    etat: c.health === "up" ? "ok" : c.health === "down" ? "alerte" : "inconnu",
+    libelle: c.health === "up" ? "collectée" : c.health === "down" ? "en échec" : "inconnue",
+    derniereCollecte: c.lastScrape,
+    dureeMs: Number.isFinite(c.lastScrapeDuration) ? Math.round(c.lastScrapeDuration * 1000) : null,
+    intervalle: c.scrapeInterval,
+    erreur: c.lastError || undefined,
+  }));
+}
+
+/** Heure de Paris, HH:MM:SS. */
+export function heureParis(iso: string): string {
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? "—" : new Intl.DateTimeFormat("fr-FR", { timeZone: "Europe/Paris", timeStyle: "medium" }).format(d);
+}
