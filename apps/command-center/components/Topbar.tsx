@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { chargerTableau } from "@/lib/donnees";
 import { ThemeToggle } from "./ThemeToggle";
 
 export interface Miette {
@@ -8,7 +9,8 @@ export interface Miette {
 }
 
 /** Barre de page : fil d'Ariane, état des sources, actions. */
-export function Topbar({ miettes, actions }: { miettes: Miette[]; actions?: ReactNode }) {
+export async function Topbar({ miettes, actions }: { miettes: Miette[]; actions?: ReactNode }) {
+  const { connecte, etatSources } = await chargerTableau();
   return (
     <header className="flex flex-wrap items-center gap-3 border-b border-line px-5 py-3.5 sm:px-9">
       <nav aria-label="Fil d’Ariane" className="text-[13px] text-muted">
@@ -39,9 +41,13 @@ export function Topbar({ miettes, actions }: { miettes: Miette[]; actions?: Reac
         </ol>
       </nav>
       <span className="flex-1" />
-      <span className="inline-flex items-center gap-1.5 text-xs text-muted" title="Aucun connecteur branché en NX-1">
-        <span className="hatch inline-block size-2 rounded-full" aria-hidden="true" />
-        Données d’exemple · aucune source branchée
+      <span className="inline-flex items-center gap-1.5 text-xs text-muted">
+        <span
+          className={`inline-block size-2 rounded-full ${connecte ? "" : "hatch"}`}
+          style={connecte ? { background: "var(--ok)" } : undefined}
+          aria-hidden="true"
+        />
+        {etatSources}
       </span>
       {actions}
       <ThemeToggle />

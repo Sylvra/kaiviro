@@ -7,7 +7,9 @@ import { NAV, estActive } from "@/lib/nav";
 import { Icon } from "./Icon";
 import { Palette } from "./Palette";
 
-function Contenu() {
+type Taches = { id: string; titre: string }[];
+
+function Contenu({ taches }: { taches: Taches }) {
   const chemin = usePathname();
   return (
     <>
@@ -20,7 +22,7 @@ function Contenu() {
           <span className="text-xs text-muted">Projet M0</span>
         </span>
       </div>
-      <Palette />
+      <Palette taches={taches} />
       <nav aria-label="Sections" className="flex flex-col gap-4">
         {NAV.map((g) => (
           <div key={g.label} className="flex flex-col gap-px">
@@ -69,7 +71,7 @@ function Contenu() {
   );
 }
 
-export function Sidebar() {
+export function Sidebar({ taches }: { taches: Taches }) {
   const [ouvert, setOuvert] = useState(false);
   const chemin = usePathname();
   useEffect(() => setOuvert(false), [chemin]);
@@ -80,7 +82,7 @@ export function Sidebar() {
         aria-label="Navigation"
         className="sticky top-0 hidden h-dvh w-[240px] shrink-0 flex-col gap-[18px] overflow-y-auto bg-rail px-3 py-4 lg:flex"
       >
-        <Contenu />
+        <Contenu taches={taches} />
       </aside>
 
       <div className="flex items-center gap-3 border-b border-line bg-rail px-4 py-2.5 lg:hidden">
@@ -100,7 +102,7 @@ export function Sidebar() {
         <div className="fixed inset-0 z-40 lg:hidden" role="dialog" aria-modal="true" aria-label="Navigation">
           <button type="button" aria-label="Fermer" className="absolute inset-0 bg-black/30" onClick={() => setOuvert(false)} />
           <aside id="nav-mobile" className="fade-up absolute inset-y-0 left-0 flex w-[272px] flex-col gap-[18px] overflow-y-auto bg-rail px-3 py-4">
-            <Contenu />
+            <Contenu taches={taches} />
           </aside>
         </div>
       )}

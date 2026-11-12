@@ -1,4 +1,4 @@
-# KAIVIRO NEXUS — front (NX-1)
+# KAIVIRO NEXUS — front (NX-1, connecteur S1)
 
 Plateforme d'opérations KAIVIRO : projet, infrastructure, administration.
 Spécification : [`docs/command-center/NEXUS_SPEC_V2.md`](../../docs/command-center/NEXUS_SPEC_V2.md) · décision : ADR-0016 (PROPOSED).
@@ -6,7 +6,8 @@ Spécification : [`docs/command-center/NEXUS_SPEC_V2.md`](../../docs/command-cen
 ## État
 
 - Socle du front, fidèle aux maquettes NX-0 validées le 2026-11-10.
-- **Aucune source branchée.** Toutes les valeurs viennent de `lib/data/exemple.ts` et sont étiquetées « exemple ».
+- **S1 GitHub branché, en lecture seule.** Tâches, avancement M0, activité, décisions et CI viennent du dépôt, avec un cache de 5 minutes. Sans `GITHUB_TOKEN`, ou si GitHub ne répond pas, NEXUS revient aux données d'exemple et l'affiche dans la barre de page.
+- **Pi, sauvegardes, API d'administration : non branchées.** Elles restent « Inconnu » tant que leur supervision n'existe pas.
 - Aucune écriture : les boutons d'action sont visibles mais inactifs, avec la raison au survol.
 - La Raspberry Pi n'est ni contactée ni modifiée.
 
@@ -38,7 +39,11 @@ npm run build
 - `lib/types.ts` : modèle d'objets (états, provenance, tâche, nœud).
 - `lib/etats.ts` : jetons d'état. Une couleur n'est jamais seule, un libellé l'accompagne.
 - `lib/charts.ts` : géométrie SVG pure, testée.
-- `lib/data/exemple.ts` : données d'exemple, remplacées par les connecteurs en NX-2.
+- `lib/donnees.ts` : point d'entrée des pages. Choisit S1 ou l'exemple.
+- `lib/s1/github.ts` : lecture GitHub, GET uniquement, jeton côté serveur.
+- `lib/s1/mapping.ts` : conversion des issues, événements et CI en objets NEXUS, testée.
+- `lib/data/exemple.ts` : données d'exemple, utilisées sans connecteur.
+- `.env.example` : variables attendues, sans valeur réelle.
 - `app/globals.css` : design system V2 (jetons clair et sombre).
 
 ## Dépendances

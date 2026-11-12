@@ -4,7 +4,7 @@ import { Icon } from "@/components/Icon";
 import { Topbar } from "@/components/Topbar";
 import { BoutonInactif, Chronologie, ListeRelations, Pastille, Source } from "@/components/ui";
 import { MISSION, STATUT, libelleEcheance } from "@/lib/etats";
-import { taches, tachesOuvertes, tachesProvenance } from "@/lib/data/exemple";
+import { chargerTableau } from "@/lib/donnees";
 import type { StatutTache, Tache } from "@/lib/types";
 
 export const metadata: Metadata = { title: "Tâches" };
@@ -54,7 +54,8 @@ function resumeRelations(t: Tache) {
 export default async function Taches({ searchParams }: { searchParams: Promise<{ vue?: string; t?: string }> }) {
   const sp = await searchParams;
   const vue: Vue = sp.vue === "kanban" ? "kanban" : "table";
-  const choisie = taches.find((t) => t.id === sp.t) ?? taches.find((t) => t.id === "pi-vpn-conteneurs")!;
+  const { taches, tachesOuvertes, tachesProvenance } = await chargerTableau();
+  const choisie = taches.find((t) => t.id === sp.t) ?? taches.find((t) => t.id === "pi-vpn-conteneurs") ?? taches[0];
 
   return (
     <>
@@ -122,7 +123,7 @@ export default async function Taches({ searchParams }: { searchParams: Promise<{
               </thead>
               <tbody>
                 {taches.map((t) => {
-                  const sel = t.id === choisie.id;
+                  const sel = t.id === choisie?.id;
                   return (
                     <tr key={t.id} className={`row-link ${sel ? "bg-accent-soft" : ""}`} aria-current={sel ? "true" : undefined}>
                       <td className="border-b border-grid py-[11px] pl-3.5 font-semibold">
@@ -165,7 +166,7 @@ export default async function Taches({ searchParams }: { searchParams: Promise<{
                       key={t.id}
                       href={url(vue, t.id)}
                       scroll={false}
-                      className={`card flex flex-col gap-2 rounded-xl p-3 transition-shadow hover:shadow-md ${t.id === choisie.id ? "outline-2 outline-accent" : ""}`}
+                      className={`card flex flex-col gap-2 rounded-xl p-3 transition-shadow hover:shadow-md ${t.id === choisie?.id ? "outline-2 outline-accent" : ""}`}
                     >
                       <span className="text-[13px] font-semibold">{t.titre}</span>
                       <span className="flex flex-wrap items-center gap-2">
@@ -184,6 +185,7 @@ export default async function Taches({ searchParams }: { searchParams: Promise<{
           </section>
         )}
 
+        {choisie && (
         <aside aria-label="Aperçu de la tâche sélectionnée" className="card flex w-full flex-col gap-4 rounded-[14px] p-[18px] lg:max-w-[380px] lg:flex-[1_1_320px]">
           <div className="flex flex-col gap-1.5">
             <span className="text-xs text-muted">Tâche · {MISSION[choisie.mission].label}</span>
@@ -214,8 +216,14 @@ export default async function Taches({ searchParams }: { searchParams: Promise<{
           </div>
           <div className="flex gap-2">
             <BoutonInactif raison="Écriture indisponible : API d’administration non déployée">Marquer terminée</BoutonInactif>
+            {choisie.lien && (
+              <a href={choisie.lien} target="_blank" rel="noreferrer" className="btn">
+                Ouvrir sur GitHub
+              </a>
+            )}
           </div>
         </aside>
+        )}
       </div>
     </>
   );

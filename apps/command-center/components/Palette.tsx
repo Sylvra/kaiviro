@@ -3,7 +3,6 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { NAV } from "@/lib/nav";
-import { taches } from "@/lib/data/exemple";
 import { Icon, type NomIcone } from "./Icon";
 
 interface Cible {
@@ -13,12 +12,9 @@ interface Cible {
   icone: NomIcone;
 }
 
-const CIBLES: Cible[] = [
-  ...NAV.flatMap((g) =>
+const PAGES: Cible[] = NAV.flatMap((g) =>
     g.entrees.filter((e) => e.href).map((e) => ({ label: e.label, groupe: g.label, href: e.href!, icone: e.icone })),
-  ),
-  ...taches.map((t) => ({ label: t.titre, groupe: "Tâches", href: `/taches?t=${t.id}`, icone: "tasks" as const })),
-];
+  );
 
 const normaliser = (s: string) =>
   s
@@ -27,7 +23,11 @@ const normaliser = (s: string) =>
     .replace(/[̀-ͯ]/g, "");
 
 /** Recherche rapide (Ctrl K) : pages actives et tâches. */
-export function Palette() {
+export function Palette({ taches }: { taches: { id: string; titre: string }[] }) {
+  const CIBLES = useMemo<Cible[]>(
+    () => [...PAGES, ...taches.map((t) => ({ label: t.titre, groupe: "Tâches", href: `/taches?t=${t.id}`, icone: "tasks" as const }))],
+    [taches],
+  );
   const router = useRouter();
   const dialog = useRef<HTMLDialogElement>(null);
   const champ = useRef<HTMLInputElement>(null);
@@ -37,7 +37,7 @@ export function Palette() {
   const resultats = useMemo(() => {
     const n = normaliser(q.trim());
     return n ? CIBLES.filter((c) => normaliser(c.label).includes(n)).slice(0, 8) : CIBLES.slice(0, 8);
-  }, [q]);
+  }, [q, CIBLES]);
 
   function ouvrir() {
     setQ("");
