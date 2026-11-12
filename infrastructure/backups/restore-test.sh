@@ -1,13 +1,14 @@
 #!/usr/bin/env bash
-# KAIVIRO — test de restauration proposé (mission A, 2026-11-05).
-# À relire et appliquer par Johan uniquement.
+# KAIVIRO — test de restauration (mission A, révisé le 2026-11-12).
 # Restaure le dernier instantané dans un dossier TEMPORAIRE. Ne touche jamais aux emplacements d'origine.
-# Usage : sudo ./restore-test.sh <scope> <repository>
+# Lancé par kaiviro-restore-test.timer, ou à la main : sudo /opt/kaiviro/backups/restore-test.sh <scope> <repository>
 set -euo pipefail
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
 # shellcheck source=/dev/null
 . "${HERE}/.env"
+# shellcheck source=/dev/null
+. "${HERE}/metriques.sh"
 
 SCOPE="${1:?scope requis}"
 REPO_NAME="${2:?repository requis (local|offsite)}"
@@ -52,6 +53,7 @@ cat > "${STATE_DIR}/latest-restore-test.json" <<JSON
 {"id":"${RUN_ID}","kind":"restore_test","scope":"${SCOPE}","started_at":"${STARTED}","finished_at":"$(now)","result":"${result}","repository":"${REPO_NAME}","snapshot_id":null,"bytes_added":null,"files_total":null,"error":${err},"restore_verified":${verified}}
 JSON
 cp "${STATE_DIR}/latest-restore-test.json" "${STATE_DIR}/${RUN_ID}.json"
+ecrire_metriques restore_test "$SCOPE" "$REPO_NAME" "$result"
 
 echo "${result} ${RUN_ID} restore_verified=${verified}"
 [ "$result" = succeeded ]
