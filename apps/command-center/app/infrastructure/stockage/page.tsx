@@ -10,7 +10,7 @@ const S5 = { source: "S5", libelle: "Node Exporter · smartmon", exemple: false 
 
 /** Périmètres de sauvegarde prévus (BACKUP_AND_RESTORE §2). Aucun n'existe encore. */
 const PERIMETRES = [
-  { id: "pi-config", contenu: "Configuration SSH, pare-feu, VPN, /opt/kaiviro", frequence: "quotidienne" },
+  { id: "pi-config", contenu: "SSH, supervision, unités systemd, /opt/kaiviro", frequence: "quotidienne" },
   { id: "pi-monitoring-data", contenu: "Données d’Uptime Kuma et de Grafana", frequence: "quotidienne" },
   { id: "admin-db", contenu: "Schéma admin (CRM, incidents, audit)", frequence: "selon l’hébergeur (ADR-0004)" },
 ];
