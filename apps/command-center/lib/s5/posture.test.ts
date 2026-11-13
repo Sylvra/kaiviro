@@ -41,6 +41,8 @@ describe("S5 · posture de sécurité", () => {
     const c = controle(base({ exposes: [v(1, { port: "22", process: "sshd" })] }), "ports");
     expect(c.etat).toBe("attention");
     expect(c.constat).toContain("22 (sshd)");
+    expect(c.constat).toContain("filtrée par nftables");
+    expect(controle(base({ exposes: [v(1, { port: "22" })], politiqueDrop: [v(0)] }), "ports").constat).toContain("Aucun filtrage");
   });
 
   it("sans relevé frais, rien n'est déclaré sain, sauf ce qui vient d'ailleurs", () => {

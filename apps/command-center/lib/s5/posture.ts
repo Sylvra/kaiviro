@@ -105,7 +105,7 @@ export function versControles(r: Reponses, maintenant: number): Controle[] {
             id: "ports",
             titre: "Ports visibles hors tailnet",
             etat: "attention",
-            constat: `${ports.length} sur le réseau local : ${ports.join(", ")}. Exposition à Internet non vérifiable depuis la Pi.`,
+            constat: `${ports.length} en écoute sur le réseau local : ${ports.join(", ")}. ${num(r.politiqueDrop) === 1 ? "Entrée filtrée par nftables : l’accès réel dépend des règles, non analysées ici." : "Aucun filtrage d’entrée par défaut."} Exposition à Internet non vérifiable depuis la Pi.`,
             reference: "ADMIN_CENTER §2",
           },
   );
