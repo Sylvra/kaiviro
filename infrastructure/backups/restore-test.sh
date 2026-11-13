@@ -21,6 +21,8 @@ case "$REPO_NAME" in
   *) echo "repository inconnu : $REPO_NAME" >&2; exit 2 ;;
 esac
 export RESTIC_PASSWORD_FILE
+# Dépôt hors site via rclone : la configuration de root est dans un fichier dédié (install-copie-drive.sh).
+if [ -n "${RCLONE_CONFIG:-}" ]; then export RCLONE_CONFIG; fi
 
 now() { date -u +%Y-%m-%dT%H:%M:%SZ; }
 RUN_ID="rt-$(date -u +%Y%m%dT%H%M%SZ)-${SCOPE}-${REPO_NAME}"
