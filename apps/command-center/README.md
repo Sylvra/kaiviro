@@ -26,6 +26,7 @@ Spécification : [`docs/command-center/NEXUS_SPEC_V2.md`](../../docs/command-cen
 | `/infrastructure/cloud` | Cloud Services : GitHub et Tailscale mesurés, Supabase et Vercel candidats |
 | `/infrastructure/stockage` | Backups & Storage : disques, santé SMART, sauvegardes prévues, mises à jour en attente |
 | `/equipe` | Team & Members : membres saisis dans NEXUS, charge par mission (S1) |
+| `/securite` | Security & Audit : posture de la Pi (S5), accès et données, journal d’audit |
 | `/reglages` | Settings : état des sources S1 à S9 |
 | `/infrastructure/noeuds/raspberry-pi-5` | Fiche de nœud : métriques, services, relations, chronologie |
 
@@ -54,6 +55,7 @@ npm run build
 - `lib/s1/decisions.ts` : issues `decision` vers objets Décision, testé.
 - `lib/s2/adr.ts` : en-têtes des ADR vers registre, testé.
 - `lib/s5/prometheus.ts` : lecture de Prometheus, GET uniquement.
+- `lib/s5/posture.ts` : contrôles de sécurité de la Pi, testé.
 - `lib/s5/stockage.ts` : disques et SMART vers objets NEXUS, testé.
 - `lib/s5/mapping.ts` : requêtes PromQL et conversion en fiche de nœud, testée.
 - `lib/data/exemple.ts` : données d'exemple, utilisées sans connecteur.

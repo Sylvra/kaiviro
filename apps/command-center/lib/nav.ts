@@ -41,7 +41,7 @@ export const NAV: GroupeNav[] = [
     entrees: [
       { label: "AI & Agents", icone: "cpu", phase: "NX-3" },
       { label: "Knowledge Center", icone: "book", href: "/connaissances" },
-      { label: "Security & Audit", icone: "shield", phase: "NX-1" },
+      { label: "Security & Audit", icone: "shield", href: "/securite" },
       { label: "Virtual Agency 3D", icone: "cube", phase: "NX-3" },
       { label: "Settings", icone: "gear", href: "/reglages" },
     ],
