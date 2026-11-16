@@ -13,6 +13,7 @@ import { lireCibles, lireRegles, lireRuntime, lireTsdb, lireVersion, prometheusC
 import { REQUETES, SERIES, duree, etatNoeud, valeur, versCibles, versSerie, versServices, type Cible, type Echantillon } from "./s5/mapping";
 import { REQUETES_STOCKAGE, versDisques, type Disque } from "./s5/stockage";
 import { REQUETES_S6, versEtats, type EtatSauvegarde } from "./s6/sauvegardes";
+import { REQUETES_POSTURE, versControles, type Controle } from "./s5/posture";
 import type { Etat, Noeud, Provenance, Tache } from "./types";
 
 /** Jalons du plan M0 (docs/roadmap/M0_PLAN.md §4), saisis dans NEXUS. */
@@ -372,6 +373,17 @@ async function chargerSourcesBrut(): Promise<EtatSource[]> {
   ];
 }
 export const chargerSources = cache(chargerSourcesBrut);
+
+/* ---------- Security & Audit · posture de la Pi (S5, relevé install-posture.sh) ---------- */
+
+async function chargerPostureBrut(): Promise<{ configure: boolean; controles: Controle[] }> {
+  if (!prometheusConfigure()) return { configure: false, controles: [] };
+  const cles = Object.keys(REQUETES_POSTURE) as (keyof typeof REQUETES_POSTURE)[];
+  const reponses = await Promise.all(cles.map((k) => requete(REQUETES_POSTURE[k])));
+  const r = Object.fromEntries(cles.map((k, i) => [k, reponses[i] ?? null])) as Record<keyof typeof REQUETES_POSTURE, Echantillon[] | null>;
+  return { configure: true, controles: versControles(r, Math.floor(Date.now() / 1000)) };
+}
+export const chargerPosture = cache(chargerPostureBrut);
 
 /** Intègre l'état de la Pi à l'Overview : santé, sujets à traiter, état des sources. */
 async function avecPi(t: Tableau): Promise<Tableau> {
